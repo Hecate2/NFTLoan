@@ -19,9 +19,7 @@ namespace NFTFlashLoan
         private const byte PREFIX_TOKEN_PRICE_OF_OWNER = (byte)'q';    // renter + token + tokenId -> price
         private const byte PREFIX_TOKEN_AMOUNT_OF_OWNER = (byte)'b';   // renter + token + tokenId -> amount
 
-        public static void OnNEP11Payment(UInt160 from, BigInteger amount, ByteString tokenId, BigInteger data)
-        {
-        }
+        public static void OnNEP11Payment(UInt160 from, BigInteger amount, ByteString tokenId, BigInteger data) { }
         public static BigInteger GetDecimals(UInt160 token) => (BigInteger)Contract.Call(token, "decimals", CallFlags.ReadStates);
         public static Iterator GetTokenPricesForRental(UInt160 token) => new StorageMap(Storage.CurrentContext, PREFIX_TOKEN_PRICE_FOR_RENTAL).Find(token, FindOptions.RemovePrefix);
         public static Iterator GetTokenAmountsForRental(UInt160 token) => new StorageMap(Storage.CurrentContext, PREFIX_TOKEN_AMOUNT_FOR_RENTAL).Find(token, FindOptions.RemovePrefix);
