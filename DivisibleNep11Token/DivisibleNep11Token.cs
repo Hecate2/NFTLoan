@@ -35,12 +35,19 @@ namespace Neo.SmartContract.Framework
         protected const byte Prefix_TokenId = 0x02;       // largest tokenId
         protected const byte Prefix_Token = 0x03;         // tokenMap[tokenId] -> TokenState
         protected const byte Prefix_AccountToken = 0x04;  // owner + tokenId -> amount
-        protected const byte Prefix_TokenOwner = 0x05;    // tokenId + owner -> amount
+        protected const byte Prefix_TokenOwner = 0x05;    // (ByteString)(BigInteger)tokenId.Length + tokenId + owner -> amount
 
         public sealed override byte Decimals() => 100;  // 0 for non-divisible NFT
 
         [Safe]
-        public static Iterator OwnerOf(ByteString tokenId) => new StorageMap(Storage.CurrentContext, Prefix_TokenOwner).Find(tokenId, FindOptions.RemovePrefix|FindOptions.KeysOnly);
+        public static Iterator OwnerOf(ByteString tokenId)
+        {
+            ExecutionEngine.Assert(tokenId.Length <= 64, "tokenId.Length > 64");
+            return new StorageMap(Storage.CurrentContext, Prefix_TokenOwner).Find(
+                (ByteString)(BigInteger)tokenId.Length + tokenId,
+                FindOptions.RemovePrefix|FindOptions.KeysOnly
+                );
+        }
 
         [Safe]
         public static BigInteger BalanceOf(UInt160 owner, ByteString tokenId) => (BigInteger)new StorageMap(Storage.CurrentContext, Prefix_AccountToken).Get(owner + tokenId);
@@ -124,7 +131,7 @@ namespace Neo.SmartContract.Framework
             StorageMap accountMap = new(Storage.CurrentContext, Prefix_AccountToken);
             StorageMap tokenOwnerMap = new(Storage.CurrentContext, Prefix_TokenOwner);
             ByteString key = owner + tokenId;
-            ByteString tokenOwnerKey = tokenId + owner;
+            ByteString tokenOwnerKey = (ByteString)(BigInteger)tokenId.Length + tokenId + owner;
             BigInteger currentBalance = (BigInteger)accountMap[key] + increment;
             ExecutionEngine.Assert(currentBalance >= 0, "balance < 0");
             if (currentBalance > 0)

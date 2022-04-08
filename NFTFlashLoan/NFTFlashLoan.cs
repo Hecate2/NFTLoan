@@ -6,16 +6,16 @@ using Neo.SmartContract.Framework.Attributes;
 using Neo.SmartContract.Framework.Native;
 using Neo.SmartContract.Framework.Services;
 
-namespace NFTFlashLoan
+namespace NFTLoan
 {
     [DisplayName("NFTFlashLoan")]
     [ManifestExtra("Author", "Hecate2")]
     [ManifestExtra("Email", "developer@neo.org")]
     [ManifestExtra("Description", "NFTFlashLoan")]
-    public class NFTFlashLoan : SmartContract
+    public class NFTLoan : SmartContract
     {
-        private const byte PREFIX_TOKEN_PRICE_FOR_RENTAL = (byte)'p';  // token + tokenId + renter -> price
-        private const byte PREFIX_TOKEN_AMOUNT_FOR_RENTAL = (byte)'a'; // token + tokenId + renter -> amount
+        private const byte PREFIX_TOKEN_PRICE_FOR_RENTAL = (byte)'p';  // token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter -> price
+        private const byte PREFIX_TOKEN_AMOUNT_FOR_RENTAL = (byte)'a'; // token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter -> amount
         private const byte PREFIX_TOKEN_PRICE_OF_OWNER = (byte)'q';    // renter + token + tokenId -> price
         private const byte PREFIX_TOKEN_AMOUNT_OF_OWNER = (byte)'b';   // renter + token + tokenId -> amount
 
@@ -29,7 +29,7 @@ namespace NFTFlashLoan
         public static void SetRentalPrice(UInt160 renter, UInt160 token, ByteString tokenId, BigInteger price)
         {
             ExecutionEngine.Assert(Runtime.CheckWitness(renter), "No witness");
-            new StorageMap(Storage.CurrentContext, PREFIX_TOKEN_PRICE_FOR_RENTAL).Put(token + tokenId + renter, price);
+            new StorageMap(Storage.CurrentContext, PREFIX_TOKEN_PRICE_FOR_RENTAL).Put(token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter, price);
         }
 
         public static BigInteger RegisterRental(UInt160 renter, UInt160 token, BigInteger amountForRent, ByteString tokenId, BigInteger price)
@@ -49,7 +49,7 @@ namespace NFTFlashLoan
 
             StorageContext context = Storage.CurrentContext;
             
-            ByteString key = token + tokenId + renter;  // risk?: length of tokenId is variant
+            ByteString key = token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter;  // risk?: length of tokenId is variant
             StorageMap rentPriceMap = new(context, PREFIX_TOKEN_PRICE_FOR_RENTAL);
             rentPriceMap.Put(key, price);
             StorageMap rentAmountMap = new(context, PREFIX_TOKEN_AMOUNT_FOR_RENTAL);
@@ -82,7 +82,7 @@ namespace NFTFlashLoan
                 ownerAmountMap.Delete(key);
                 StorageMap ownerPriceMap = new(context, PREFIX_TOKEN_PRICE_OF_OWNER);
                 ownerPriceMap.Delete(key);
-                key = token + tokenId + renter;  // risk?: length of tokenId is variant
+                key = token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter;  // risk?: length of tokenId is variant
                 StorageMap rentAmountMap = new(context, PREFIX_TOKEN_AMOUNT_FOR_RENTAL);
                 rentAmountMap.Delete(key);
                 StorageMap rentPriceMap = new(context, PREFIX_TOKEN_PRICE_FOR_RENTAL);
@@ -91,7 +91,7 @@ namespace NFTFlashLoan
             else
             {
                 ownerAmountMap.Put(key, amount);
-                key = token + tokenId + renter;  // risk?: length of tokenId is variant
+                key = token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter;  // risk?: length of tokenId is variant
                 StorageMap rentAmountMap = new(context, PREFIX_TOKEN_AMOUNT_FOR_RENTAL);
                 rentAmountMap.Put(key, amount);
                 StorageMap rentPriceMap = new(context, PREFIX_TOKEN_PRICE_FOR_RENTAL);
@@ -120,7 +120,7 @@ namespace NFTFlashLoan
             if (renter == UInt160.Zero)
             {
                 // no renter assigned; borrow from any renter; tenant may suffer higher prices
-                key = token + tokenId;
+                key = token + (ByteString)(BigInteger)tokenId.Length + tokenId;
                 Iterator amountIterator = rentAmountMap.Find(key, FindOptions.RemovePrefix);
                 BigInteger rentedAmount = 0;
                 BigInteger stillNeededAmount;
@@ -140,7 +140,7 @@ namespace NFTFlashLoan
             else
             {
                 // renter assigned; borrow from given renter; tenant probably can have better prices
-                key = token + tokenId + renter;
+                key = token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter;
                 availableAmount = (BigInteger)rentAmountMap[key];
                 ExecutionEngine.Assert(availableAmount > neededAmount, "No enough NFTs to rent");
                 if (availableAmount > neededAmount) { availableAmount = neededAmount; }
@@ -164,7 +164,7 @@ namespace NFTFlashLoan
             StorageContext context = Storage.CurrentContext;
             StorageMap rentPriceMap = new(context, PREFIX_TOKEN_PRICE_FOR_RENTAL);
             StorageMap rentAmountMap = new(context, PREFIX_TOKEN_AMOUNT_FOR_RENTAL);
-            key = token + tokenId;
+            key = token + (ByteString)(BigInteger)tokenId.Length + tokenId;
             Iterator amountIterator = rentAmountMap.Find(key, FindOptions.RemovePrefix);
             ExecutionEngine.Assert(amountIterator.Next(), "Failed to find renter");
             price = (BigInteger)rentPriceMap[key + ((ByteString[])amountIterator.Value)[0]];
