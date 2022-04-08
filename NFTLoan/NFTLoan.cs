@@ -29,6 +29,7 @@ namespace NFTLoan
             StorageMap tokenForRental = new StorageMap(Storage.CurrentContext, PREFIX_TOKEN_FOR_RENTAL);
             ByteString key = token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter;
             BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize(tokenForRental.Get(key));
+            ExecutionEngine.Assert(amountAndPrice[0] > 0, "No token at rental");
             amountAndPrice[1] = price;
             ByteString serialized = StdLib.Serialize(amountAndPrice);
             tokenForRental.Put(key, serialized);
@@ -39,6 +40,7 @@ namespace NFTLoan
 
         public static BigInteger RegisterRental(UInt160 renter, UInt160 token, BigInteger amountForRent, ByteString tokenId, BigInteger price)
         {
+            ExecutionEngine.Assert(tokenId.Length <= 64, "tokenId.Length > 64");
             BigInteger decimals = GetDecimals(token);
             // ExecutionEngine.Assert(amountForRent > 0, "amountForRent <= 0");  // unnecessary
             // Transfer is very risky. Consider a whitelist of tokens. 
