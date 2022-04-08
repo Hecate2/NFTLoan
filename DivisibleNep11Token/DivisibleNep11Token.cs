@@ -50,7 +50,12 @@ namespace Neo.SmartContract.Framework
         }
 
         [Safe]
-        public static BigInteger BalanceOf(UInt160 owner, ByteString tokenId) => (BigInteger)new StorageMap(Storage.CurrentContext, Prefix_AccountToken).Get(owner + tokenId);
+        public static BigInteger BalanceOf(UInt160 owner, ByteString tokenId)
+        {
+            if (!owner.IsValid) throw new Exception("The argument \"owner\" is invalid");
+            if (tokenId.Length <= 64) throw new Exception("tokenId.Length > 64");
+            return (BigInteger)new StorageMap(Storage.CurrentContext, Prefix_AccountToken).Get(owner + tokenId);
+        }
 
         [Safe]
         public virtual Map<string, object> Properties(ByteString tokenId)
@@ -80,9 +85,10 @@ namespace Neo.SmartContract.Framework
 
         public static bool Transfer(UInt160 from, UInt160 to, BigInteger amount, ByteString tokenId, object data)
         {
+            if (!Runtime.CheckWitness(from)) return false;
             if (to is null || !to.IsValid)
                 throw new Exception("The argument \"to\" is invalid.");
-            if (!Runtime.CheckWitness(from)) return false;
+            if (amount < 0) throw new Exception("amount < 0");
             if (from != to)
             {
                 UpdateBalance(from, tokenId, -amount);
