@@ -24,7 +24,7 @@ namespace Neo.SmartContract.Framework
         // meta info ...
     }
 
-    public abstract class Nep11Token<TokenState> : TokenContract
+    public abstract class DivisibleNep11Token<TokenState> : TokenContract
         where TokenState : DivisibleNep11TokenState
     {
         public delegate void OnTransferDelegate(UInt160 from, UInt160 to, BigInteger amount, ByteString tokenId);
