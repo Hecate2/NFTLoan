@@ -21,10 +21,10 @@ namespace NFTLoan
     {
         private const uint MAX_RENTAL_PERIOD = 86400 * 1000 * 10;  // 10 days; uint supports <= 49 days
         private const uint MIN_RENTAL_PRICE = 100;
-        private const byte PREFIX_TOKEN_FOR_RENTAL = (byte)'r';  // token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter -> StdLib.Serialize(amount, price)
-        private const byte PREFIX_TOKEN_OF_RENTER = (byte)'o';    // renter + token + tokenId -> StdLib.Serialize(amount, price)
-        private const byte PREFIX_TOKEN_RENTER_DEADLINE = (byte)'d';    // renter + (ByteString)(BigInteger)tokenId.Length + tokenId + tenant + start_time -> StdLib.Serialize(amount, totalPrice, deadline)
-        private const byte PREFIX_TOKEN_TENANT_DEADLINE = (byte)'t';    // tenant + (ByteString)(BigInteger)tokenId.Length + tokenId + renter + start_time -> StdLib.Serialize(amount, totalPrice, deadline)
+        private const byte PREFIX_TOKEN_FOR_RENTAL = (byte)'r';  // token + [EXTERNAL](ByteString)(BigInteger)tokenId.Length + tokenId + renter -> StdLib.Serialize(amount, price)
+        private const byte PREFIX_TOKEN_OF_RENTER = (byte)'o';    // renter + token + [EXTERNAL]tokenId -> StdLib.Serialize(amount, price)
+        private const byte PREFIX_TOKEN_RENTER_DEADLINE = (byte)'d';    // renter + [INTERNAL](ByteString)(BigInteger)tokenId.Length + tokenId + tenant + start_time -> StdLib.Serialize(amount, totalPrice, deadline)
+        private const byte PREFIX_TOKEN_TENANT_DEADLINE = (byte)'t';    // tenant + [INTERNAL](ByteString)(BigInteger)tokenId.Length + tokenId + renter + start_time -> StdLib.Serialize(amount, totalPrice, deadline)
         private const byte PREFIX_TOKENID_INTERNAL_TO_EXTERNAL = (byte)'i';  // internal tokenId -> external token contract + tokenId
         private const byte PREFIX_TOKENID_EXTERNAL_TO_INTERNAL = (byte)'e';  // external token contract + tokenId -> internal tokenId
 
@@ -60,7 +60,7 @@ namespace NFTLoan
         public static ByteString GetInternalTokenId(UInt160 externalTokenContract, ByteString externalTokenId) => new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL).Get(externalTokenContract + externalTokenId);
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-        public static BigInteger Min(BigInteger v1, BigInteger v2) => v1 < v2 ? v1 : v2;
+        public static BigInteger Max(BigInteger v1, BigInteger v2) => v1 > v2 ? v1 : v2;
 
         public new static bool Transfer(UInt160 from, UInt160 to, BigInteger amount, ByteString tokenId, object data)
         {
@@ -76,6 +76,16 @@ namespace NFTLoan
             }
             PostTransfer(from, to, tokenId, data);
             return true;
+        }
+
+        private new static ByteString NewTokenId()
+        {
+            StorageContext context = Storage.CurrentContext;
+            byte[] key = new byte[] { Prefix_TokenId };
+            ByteString id = Storage.Get(context, key);
+            ExecutionEngine.Assert(id.Length < 0xFD, "Too long id");
+            Storage.Put(context, key, (BigInteger)id + 1);
+            return id;
         }
 
         public static void SetRentalPrice(UInt160 renter, UInt160 tokenContract, ByteString tokenId, BigInteger price)
@@ -99,10 +109,10 @@ namespace NFTLoan
             StorageContext context = Storage.CurrentContext;
             StorageMap externalToInternal = new(context, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL);
             ByteString externalTokenInfo = originalContract + externalTokenId;
-            UInt160 internalTokenId = (UInt160)externalToInternal.Get(externalTokenInfo);
+            ByteString internalTokenId = externalToInternal.Get(externalTokenInfo);
             if (internalTokenId == UInt160.Zero)
             {
-                internalTokenId = (UInt160)NewTokenId();
+                internalTokenId = NewTokenId();
                 externalToInternal.Put(externalTokenId, internalTokenId);
                 new StorageMap(context, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Put(internalTokenId, externalTokenInfo);
             }
@@ -215,6 +225,68 @@ namespace NFTLoan
             return UnregisterLoan(tokenForRentalMap, tokenOfOwnerMap, Runtime.ExecutingScriptHash, renter, amountToUnregister, internalTokenId);
         }
 
+        public static void Borrow(UInt160 renter, UInt160 tenant, BigInteger amount, UInt160 externalTokenContract, ByteString externalTokenId, BigInteger borrowTimeMilliseconds)
+        {
+            StorageContext context = Storage.CurrentContext;
+            BigInteger startTime = Runtime.Time;
+            ByteString internalTokenId = new StorageMap(context, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL).Get(externalTokenContract + externalTokenId);
+
+            StorageMap tokenForRentalMap = new(context, PREFIX_TOKEN_FOR_RENTAL);
+            ByteString key = externalTokenId + externalTokenId.Length + externalTokenId + renter;
+            BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize(tokenForRentalMap.Get(key));
+
+            BigInteger totalPrice = Max(amountAndPrice[1] * borrowTimeMilliseconds / 1000, MIN_RENTAL_PRICE);
+            ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, new object[] { tenant, renter, totalPrice, null }), "Failed to pay GAS");
+
+            amountAndPrice[0] -= amount;
+            ExecutionEngine.Assert(amountAndPrice[0] >= 0, "No enough token to lend");
+            ByteString serialized = StdLib.Serialize(amountAndPrice);
+            tokenForRentalMap.Put(key, serialized);
+            new StorageMap(context, PREFIX_TOKEN_OF_RENTER).Put(renter + externalTokenContract + externalTokenId, serialized);
+
+            StorageMap tokenRenterDeadlineMap = new(context, PREFIX_TOKEN_RENTER_DEADLINE);
+            key = renter + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + tenant + startTime;
+            ExecutionEngine.Assert(tokenRenterDeadlineMap[key] == "", "Cannot borrow twice in a single block");
+            BigInteger[] amountTotalPriceDeadline = new BigInteger[] {amount, totalPrice, startTime + borrowTimeMilliseconds};
+            serialized = StdLib.Serialize(amountTotalPriceDeadline);
+            tokenRenterDeadlineMap.Put(key, serialized);
+            new StorageMap(context, PREFIX_TOKEN_TENANT_DEADLINE).Put(tenant + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter + startTime, serialized);
+        }
+
+        public static void Borrow(UInt160 renter, UInt160 tenant, BigInteger amount, ByteString internalTokenId, BigInteger borrowTimeMilliseconds)
+        {
+            StorageContext context = Storage.CurrentContext;
+            BigInteger startTime = Runtime.Time;
+            ByteString[] externalTokenContractAndId = (ByteString[])StdLib.Deserialize(new StorageMap(context, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Get(internalTokenId));
+            ByteString externalTokenContract = externalTokenContractAndId[0], externalTokenId = externalTokenContractAndId[1];
+
+            StorageMap tokenForRentalMap = new(context, PREFIX_TOKEN_FOR_RENTAL);
+            ByteString key = externalTokenId + externalTokenId.Length + externalTokenId + renter;
+            BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize(tokenForRentalMap.Get(key));
+
+            BigInteger totalPrice = Max(amountAndPrice[1] * borrowTimeMilliseconds / 1000, MIN_RENTAL_PRICE);
+            ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, new object[] { tenant, renter, totalPrice, null }), "Failed to pay GAS");
+
+            amountAndPrice[0] -= amount;
+            ExecutionEngine.Assert(amountAndPrice[0] >= 0, "No enough token to lend");
+            ByteString serialized = StdLib.Serialize(amountAndPrice);
+            tokenForRentalMap.Put(key, serialized);
+            new StorageMap(context, PREFIX_TOKEN_OF_RENTER).Put(renter + externalTokenContract + externalTokenId, serialized);
+
+            StorageMap tokenRenterDeadlineMap = new(context, PREFIX_TOKEN_RENTER_DEADLINE);
+            key = renter + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + tenant + startTime;
+            ExecutionEngine.Assert(tokenRenterDeadlineMap[key] == "", "Cannot borrow twice in a single block");
+            BigInteger[] amountTotalPriceDeadline = new BigInteger[] { amount, totalPrice, startTime + borrowTimeMilliseconds };
+            serialized = StdLib.Serialize(amountTotalPriceDeadline);
+            tokenRenterDeadlineMap.Put(key, serialized);
+            new StorageMap(context, PREFIX_TOKEN_TENANT_DEADLINE).Put(tenant + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter + startTime, serialized);
+        }
+
+        public static void Payback()
+        {
+            // TODO
+        }
+
         public static object FlashRentDivisible(
             UInt160 tenant, UInt160 token, ByteString tokenId, UInt160 renter, BigInteger neededAmount,
             UInt160 renterCalledContract, string renterCalledMethod, object[] arguments)
@@ -237,7 +309,7 @@ namespace NFTLoan
                     stillNeededAmount = neededAmount - rentedAmount;
                     if (availableAmount > stillNeededAmount) { availableAmount = stillNeededAmount; }
                     rentedAmount += availableAmount;
-                    ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, new object[] { tenant, renter, availableAmount * Min(amountAndPrice[1], MIN_RENTAL_PRICE), null }), "GAS transfer failed");
+                    ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, new object[] { tenant, renter, availableAmount * Max(amountAndPrice[1], MIN_RENTAL_PRICE), null }), "GAS transfer failed");
                 }
                 ExecutionEngine.Assert(rentedAmount == neededAmount, "No enough NFTs to rent");
             }
@@ -246,7 +318,7 @@ namespace NFTLoan
                 // renter assigned; borrow only from given renter; tenant probably can have better prices
                 BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize(tokenForRental[token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter]);
                 ExecutionEngine.Assert(amountAndPrice[0] > neededAmount, "No enough NFTs to rent");
-                ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, new object[] { tenant, renter, amountAndPrice[0] * Min(amountAndPrice[1], MIN_RENTAL_PRICE), null }), "GAS transfer failed");
+                ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, new object[] { tenant, renter, amountAndPrice[0] * Max(amountAndPrice[1], MIN_RENTAL_PRICE), null }), "GAS transfer failed");
             }
             ExecutionEngine.Assert((bool)Contract.Call(token, "transfer", CallFlags.All, new object[] { Runtime.ExecutingScriptHash, tenant, neededAmount, tokenId, null }), "NFT transfer failed");
 
@@ -264,7 +336,7 @@ namespace NFTLoan
             Iterator rentalIterator = tokenForRental.Find(token + (ByteString)(BigInteger)tokenId.Length + tokenId, FindOptions.RemovePrefix);
             ExecutionEngine.Assert(rentalIterator.Next(), "Failed to find renter");
             BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize((ByteString)rentalIterator.Value);
-            ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, new object[] { tenant, renter, Min(amountAndPrice[1], MIN_RENTAL_PRICE), null }), "GAS transfer failed");
+            ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, new object[] { tenant, renter, Max(amountAndPrice[1], MIN_RENTAL_PRICE), null }), "GAS transfer failed");
             ExecutionEngine.Assert((bool)Contract.Call(token, "transfer", CallFlags.All, new object[] { tenant, tokenId, null }), "NFT transfer failed");
 
             object result = Contract.Call(calledContract, calledMethod, CallFlags.All, arguments);
