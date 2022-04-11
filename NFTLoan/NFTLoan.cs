@@ -23,8 +23,8 @@ namespace NFTLoan
         private const uint MIN_RENTAL_PRICE = 100;
         private const byte PREFIX_TOKEN_FOR_RENTAL = (byte)'r';  // token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter -> StdLib.Serialize(amount, price)
         private const byte PREFIX_TOKEN_OF_RENTER = (byte)'o';    // renter + token + tokenId -> StdLib.Serialize(amount, price)
-        private const byte PREFIX_TOKEN_RENTER_DEADLINE = (byte)'d';    // renter + token + (ByteString)(BigInteger)tokenId.Length + tokenId + tenant + start_time -> StdLib.Serialize(amount, totalPrice, deadline)
-        private const byte PREFIX_TOKEN_TENANT_DEADLINE = (byte)'t';    // tenant + token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter + start_time -> StdLib.Serialize(amount, totalPrice, deadline)
+        private const byte PREFIX_TOKEN_RENTER_DEADLINE = (byte)'d';    // renter + (ByteString)(BigInteger)tokenId.Length + tokenId + tenant + start_time -> StdLib.Serialize(amount, totalPrice, deadline)
+        private const byte PREFIX_TOKEN_TENANT_DEADLINE = (byte)'t';    // tenant + (ByteString)(BigInteger)tokenId.Length + tokenId + renter + start_time -> StdLib.Serialize(amount, totalPrice, deadline)
         private const byte PREFIX_TOKENID_INTERNAL_TO_EXTERNAL = (byte)'i';  // internal tokenId -> external token contract + tokenId
         private const byte PREFIX_TOKENID_EXTERNAL_TO_INTERNAL = (byte)'e';  // external token contract + tokenId -> internal tokenId
 
