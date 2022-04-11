@@ -53,10 +53,11 @@ namespace NFTLoan
         public static Iterator ListTenantDeadline(UInt160 tenant, UInt160 token, ByteString tokenId, UInt160 renter) => new StorageMap(Storage.CurrentContext, PREFIX_TOKEN_TENANT_DEADLINE).Find(tenant + token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter, FindOptions.RemovePrefix);
         public static BigInteger[] GetTenantDeadline(UInt160 tenant, UInt160 token, ByteString tokenId, UInt160 renter, BigInteger startTime) => (BigInteger[])StdLib.Deserialize(new StorageMap(Storage.CurrentContext, PREFIX_TOKEN_TENANT_DEADLINE).Get(tenant + token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter + (ByteString)startTime));
 
+        public static Iterator ListExternalTokenInfo(ByteString prefix) => new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Find(prefix);
         public static ByteString GetExternalTokenInfo(ByteString internalTokenId) => new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Get(internalTokenId);
-        public static Iterator ListExternalTokenInfo(ByteString prefix) => new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL).Find(prefix);
+        public static Iterator ListInternalTokenId(ByteString prefix) => new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL).Find(prefix);
+        public static Iterator ListInternalTokenId(UInt160 externalTokenContract, ByteString prefix) => new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL).Find(externalTokenContract + prefix);
         public static ByteString GetInternalTokenId(UInt160 externalTokenContract, ByteString externalTokenId) => new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL).Get(externalTokenContract + externalTokenId);
-        public static Iterator ListInternalTokenId(ByteString prefix) => new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Find(prefix);
 
         [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static BigInteger Min(BigInteger v1, BigInteger v2) => v1 < v2 ? v1 : v2;
