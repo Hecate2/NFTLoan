@@ -132,7 +132,7 @@ namespace Neo.SmartContract.Framework
             PostTransfer(owner, null, tokenId, null);
         }
 
-        private static void UpdateBalance(UInt160 owner, ByteString tokenId, BigInteger increment)
+        protected static void UpdateBalance(UInt160 owner, ByteString tokenId, BigInteger increment)
         {
             StorageMap accountMap = new(Storage.CurrentContext, Prefix_AccountToken);
             StorageMap tokenOwnerMap = new(Storage.CurrentContext, Prefix_TokenOwner);
@@ -161,7 +161,7 @@ namespace Neo.SmartContract.Framework
             Storage.Put(context, key, totalSupply);
         }
 
-        private static void PostTransfer(UInt160 from, UInt160 to, ByteString tokenId, object data)
+        protected static void PostTransfer(UInt160 from, UInt160 to, ByteString tokenId, object data)
         {
             OnTransfer(from, to, 1, tokenId);
             if (to is not null && ContractManagement.GetContract(to) is not null)
