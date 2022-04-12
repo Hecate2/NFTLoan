@@ -40,7 +40,11 @@ namespace NFTLoan
 
         // TODO: fire events
 
-        public static void OnNEP11Payment(UInt160 from, BigInteger amount, ByteString tokenId, BigInteger data) { }
+        public static void OnNEP11Payment(UInt160 from, BigInteger amount, ByteString tokenId, BigInteger data)
+        {
+            ExecutionEngine.Assert(Runtime.CallingScriptHash != Runtime.ExecutingScriptHash,
+                "Do not send NFTs from this contract into this contract! You probably need the method payback or registerRental.");
+        }
         public override string Symbol() => "NEPHRENT";
         public static BigInteger GetDecimals(UInt160 token) => (BigInteger)Contract.Call(token, "decimals", CallFlags.ReadStates);
         public static BigInteger BalanceOfRentalToken(ByteString tokenId) => BalanceOf(Runtime.ExecutingScriptHash, tokenId);
@@ -76,7 +80,7 @@ namespace NFTLoan
 
         public new static bool Transfer(UInt160 from, UInt160 to, BigInteger amount, ByteString tokenId, object data)
         {
-            if (from != Runtime.ExecutingScriptHash && to != Runtime.ExecutingScriptHash) return false;
+            if (from != Runtime.ExecutingScriptHash) return false;
             if (!Runtime.CheckWitness(from)) return false;
             if (to is null || !to.IsValid)
                 throw new Exception("The argument \"to\" is invalid.");
@@ -267,6 +271,8 @@ namespace NFTLoan
             tokenRenterDeadlineMap.Put(key, serialized);
             new StorageMap(context, PREFIX_TOKEN_TENANT_DEADLINE).Put(tenant + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter + startTime, serialized);
 
+            ExecutionEngine.Assert(Transfer(Runtime.ExecutingScriptHash, tenant, amount, internalTokenId, null));
+
             return startTime;
         }
 
@@ -299,6 +305,8 @@ namespace NFTLoan
             tokenRenterDeadlineMap.Put(key, serialized);
             new StorageMap(context, PREFIX_TOKEN_TENANT_DEADLINE).Put(tenant + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter + startTime, serialized);
 
+            ExecutionEngine.Assert(Transfer(Runtime.ExecutingScriptHash, tenant, amount, internalTokenId, null));
+
             return startTime;
         }
 
@@ -307,22 +315,7 @@ namespace NFTLoan
             StorageContext context = Storage.CurrentContext;
             ByteString internalTokenId = new StorageMap(context, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL).Get(externalTokenContract + externalTokenId);
             ExecutionEngine.Assert(internalTokenId != UInt160.Zero, "Failed to find the token to burn");
-            StorageMap tokenTenantDeadlineMap = new(context, PREFIX_TOKEN_TENANT_DEADLINE);
-            ByteString key = tenant + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter + startTime;
-            ByteString queryResult = tokenTenantDeadlineMap[key];
-            ExecutionEngine.Assert(queryResult != "", "No such rental");
-            BigInteger[] amountPriceAndDeadline = (BigInteger[])StdLib.Deserialize(queryResult);
-            if (Runtime.Time > amountPriceAndDeadline[2])
-            {
-                ExecutionEngine.Assert(Runtime.CheckWitness(tenant), "Rental not expired. Need signature from tenant");
-            }
-            Burn(tenant, amountPriceAndDeadline[0], internalTokenId);
-            RegisterLoan(
-                new StorageMap(context, PREFIX_TOKEN_FOR_RENTAL),
-                new StorageMap(context, PREFIX_TOKEN_OF_RENTER),
-                Runtime.ExecutingScriptHash, renter, amountPriceAndDeadline[0], internalTokenId, amountPriceAndDeadline[1]);
-            // TODO in the future: if RentalState.ClosedForNextRental,
-            // burn the rented tokens and give the original NFT back to the owner
+            Payback(renter, tenant, internalTokenId, startTime);
         }
 
         public static void Payback(UInt160 renter, UInt160 tenant, ByteString internalTokenId, BigInteger startTime)
@@ -339,6 +332,7 @@ namespace NFTLoan
                 ExecutionEngine.Assert(Runtime.CheckWitness(tenant), "Rental not expired. Need signature from tenant");
             }
             Burn(tenant, amountPriceAndDeadline[0], internalTokenId);
+            MintSubToken(Runtime.ExecutingScriptHash, internalTokenId, amountPriceAndDeadline[0]);
             RegisterLoan(
                 new StorageMap(context, PREFIX_TOKEN_FOR_RENTAL),
                 new StorageMap(context, PREFIX_TOKEN_OF_RENTER),
