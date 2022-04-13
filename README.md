@@ -5,5 +5,5 @@
 3. [Done] Ordinary rental of the right of NFT usage. 
 4. [Done] Tenant pay compulsory collaterals, used to reward those who revoke expired rentals. 
 5. [Done] Renter can close a following rental
-6. Fire events
+6. [Done] Fire events
 
