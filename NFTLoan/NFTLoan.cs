@@ -343,7 +343,7 @@ namespace NFTLoan
             return startTime;
         }
 
-        public static void CloseNextRental(UInt160 renter, ByteString internalTokenId, UInt160 tenant, BigInteger startTime)
+        public static void CloseNextRental(UInt160 renter, ByteString internalTokenId, UInt160 tenant, ByteString startTime)
         {
             ExecutionEngine.Assert(Runtime.CheckWitness(renter), "No witness from renter");
             StorageContext context = Storage.CurrentContext;
@@ -356,9 +356,9 @@ namespace NFTLoan
             rentalDeadlineByRenterMap[key] = serialized;
             StorageMap rentalDeadlineByTenantMap = new(context, PREFIX_RENTAL_DEADLINE_BY_RENTER);
             rentalDeadlineByTenantMap[tenant + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter + startTime] = serialized;
-            OnRentalClosed(renter, internalTokenId, tenant, startTime, amountCollateralDeadlineAndOpen[0], amountCollateralDeadlineAndOpen[1], amountCollateralDeadlineAndOpen[2]);
+            OnRentalClosed(renter, internalTokenId, tenant, (BigInteger)startTime, amountCollateralDeadlineAndOpen[0], amountCollateralDeadlineAndOpen[1], amountCollateralDeadlineAndOpen[2]);
         }
-        public static void OpenNextRental(UInt160 renter, ByteString internalTokenId, UInt160 tenant, BigInteger startTime)
+        public static void OpenNextRental(UInt160 renter, ByteString internalTokenId, UInt160 tenant, ByteString startTime)
         {
             ExecutionEngine.Assert(Runtime.CheckWitness(renter), "No witness from renter");
             StorageContext context = Storage.CurrentContext;
@@ -371,22 +371,22 @@ namespace NFTLoan
             rentalDeadlineByRenterMap[key] = serialized;
             StorageMap rentalDeadlineByTenantMap = new(context, PREFIX_RENTAL_DEADLINE_BY_RENTER);
             rentalDeadlineByTenantMap[tenant + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter + startTime] = serialized;
-            OnRentalOpened(renter, internalTokenId, tenant, startTime, amountCollateralDeadlineAndOpen[0], amountCollateralDeadlineAndOpen[1], amountCollateralDeadlineAndOpen[2]);
+            OnRentalOpened(renter, internalTokenId, tenant, (BigInteger)startTime, amountCollateralDeadlineAndOpen[0], amountCollateralDeadlineAndOpen[1], amountCollateralDeadlineAndOpen[2]);
         }
 
-        public static void Payback(UInt160 renter, UInt160 tenant, UInt160 externalTokenContract, ByteString externalTokenId, BigInteger startTime, UInt160 collateralReceiver)
+        public static void Payback(UInt160 renter, UInt160 tenant, UInt160 externalTokenContract, ByteString externalTokenId, ByteString startTime, UInt160 collateralReceiver)
         {
             ByteString internalTokenId = new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL).Get(externalTokenContract + externalTokenId);
             Payback(renter, tenant, internalTokenId, externalTokenContract, externalTokenId, startTime, collateralReceiver);
         }
 
-        public static void Payback(UInt160 renter, UInt160 tenant, ByteString internalTokenId, BigInteger startTime, UInt160 collateralReceiver)
+        public static void Payback(UInt160 renter, UInt160 tenant, ByteString internalTokenId, ByteString startTime, UInt160 collateralReceiver)
         {
             ByteString[] externaltokenContractAndId = (ByteString[])StdLib.Deserialize(new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Get(internalTokenId));
             Payback(renter, tenant, internalTokenId, (UInt160)externaltokenContractAndId[0], externaltokenContractAndId[1], startTime, collateralReceiver);
         }
 
-        private static void Payback(UInt160 renter, UInt160 tenant, ByteString internalTokenId, UInt160 externalTokenContract, ByteString externalTokenId, BigInteger startTime, UInt160 collateralReceiver)
+        private static void Payback(UInt160 renter, UInt160 tenant, ByteString internalTokenId, UInt160 externalTokenContract, ByteString externalTokenId, ByteString startTime, UInt160 collateralReceiver)
         {
             StorageContext context = Storage.CurrentContext;
 
@@ -421,7 +421,7 @@ namespace NFTLoan
                     new StorageMap(context, PREFIX_REGISTERED_RENTAL_BY_OWNER),
                     Runtime.ExecutingScriptHash, renter, amountCollateralDeadlineAndOpen[0], internalTokenId);
             }
-            OnRentalRevoked(renter, internalTokenId, tenant, startTime, amountCollateralDeadlineAndOpen[0], amountCollateralDeadlineAndOpen[1], amountCollateralDeadlineAndOpen[2]);
+            OnRentalRevoked(renter, internalTokenId, tenant, (BigInteger)startTime, amountCollateralDeadlineAndOpen[0], amountCollateralDeadlineAndOpen[1], amountCollateralDeadlineAndOpen[2]);
             ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, collateralReceiver, amountCollateralDeadlineAndOpen[1], null));
         }
 
