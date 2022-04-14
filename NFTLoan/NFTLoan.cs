@@ -151,9 +151,19 @@ namespace NFTLoan
             if (internalTokenId == UInt160.Zero)
             {
                 internalTokenId = NewTokenId();
-                externalToInternal.Put(externalTokenId, internalTokenId);
+                externalToInternal.Put(externalTokenInfo, internalTokenId);
                 new StorageMap(context, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Put(internalTokenId, externalTokenInfo);
             }
+            Mint(Runtime.ExecutingScriptHash, amount, internalTokenId, new DivisibleNep11TokenState { Name = externalTokenInfo });
+            OnTokenCreated(externalTokenContract, externalTokenContract, internalTokenId, amount);
+            return internalTokenId;
+        }
+
+        private static ByteString MintSubToken(ByteString internalTokenId, UInt160 externalTokenContract, ByteString externalTokenId, BigInteger amount)
+        {
+            StorageContext context = Storage.CurrentContext;
+            StorageMap externalToInternal = new(context, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL);
+            ByteString externalTokenInfo = externalTokenContract + externalTokenId;
             Mint(Runtime.ExecutingScriptHash, amount, internalTokenId, new DivisibleNep11TokenState { Name = externalTokenInfo });
             OnTokenCreated(externalTokenContract, externalTokenContract, internalTokenId, amount);
             return internalTokenId;
@@ -200,28 +210,28 @@ namespace NFTLoan
         /// <param name="flashLoanPrice">GAS (1e8) price for each loan. Minimum: <see cref="MIN_RENTAL_PRICE"/>.</param>
         /// <param name="ordinaryLoanPrice">GAS (1e8) price per second (not millisecond!). Minimum for each loan: <see cref="MIN_RENTAL_PRICE"/>.</param>
         public static BigInteger RegisterRental(
-            UInt160 renter, UInt160 tokenContract, BigInteger amountForRent, ByteString tokenId,
+            UInt160 renter, UInt160 externalTokenContract, BigInteger amountForRent, ByteString externalTokenId,
             BigInteger flashLoanPrice, BigInteger ordinaryLoanPrice)
         {
             // No need to Runtime.CheckWitness(renter), because we will transfer NFT from renter to this contract.
-            ExecutionEngine.Assert(tokenId.Length <= 64, "tokenId.Length > 64");
-            ExecutionEngine.Assert(tokenContract != Runtime.ExecutingScriptHash, "Cannot register rental for tokens issued by this contract");
+            ExecutionEngine.Assert(externalTokenId.Length <= 64, "tokenId.Length > 64");
+            ExecutionEngine.Assert(externalTokenContract != Runtime.ExecutingScriptHash, "Cannot register rental for tokens issued by this contract");
             // ExecutionEngine.Assert(amountForRent > 0, "amountForRent <= 0");  // unnecessary
             // Transfer is very risky. Consider a whitelist of tokens. 
-            if (GetDecimals(tokenContract) == 0)
+            if (GetDecimals(externalTokenContract) == 0)
             {
-                ExecutionEngine.Assert((bool)Contract.Call(tokenContract, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, tokenId, null), "Transfer failed");
+                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, externalTokenId, null), "Transfer failed");
                 amountForRent = 1;
             }
             else
-                ExecutionEngine.Assert((bool)Contract.Call(tokenContract, "transfer", CallFlags.All, renter, Runtime.ExecutingScriptHash, amountForRent, tokenId, null), "Transfer failed");
+                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, Runtime.ExecutingScriptHash, amountForRent, externalTokenId, null), "Transfer failed");
 
             StorageContext context = Storage.CurrentContext;
             StorageMap registeredRentalByTokenMap = new(context, PREFIX_REGISTERED_RENTAL_BY_TOKEN);
             StorageMap registeredRentalByOwnerMap = new(context, PREFIX_REGISTERED_RENTAL_BY_OWNER);
 
-            RegisterLoan(registeredRentalByTokenMap, registeredRentalByOwnerMap, tokenContract, renter, amountForRent, tokenId, flashLoanPrice);
-            ByteString internalTokenId = MintSubToken(tokenContract, tokenId, amountForRent);
+            RegisterLoan(registeredRentalByTokenMap, registeredRentalByOwnerMap, externalTokenContract, renter, amountForRent, externalTokenId, flashLoanPrice);
+            ByteString internalTokenId = MintSubToken(externalTokenContract, externalTokenId, amountForRent);
             return RegisterLoan(registeredRentalByTokenMap, registeredRentalByOwnerMap, Runtime.ExecutingScriptHash, renter, amountForRent, internalTokenId, ordinaryLoanPrice);
         }
 
@@ -415,7 +425,7 @@ namespace NFTLoan
             }
             else
             {
-                MintSubToken(Runtime.ExecutingScriptHash, internalTokenId, amountCollateralDeadlineAndOpen[0]);
+                MintSubToken(internalTokenId, externalTokenContract, externalTokenId, amountCollateralDeadlineAndOpen[0]);
                 RegisterLoan(
                     new StorageMap(context, PREFIX_REGISTERED_RENTAL_BY_TOKEN),
                     new StorageMap(context, PREFIX_REGISTERED_RENTAL_BY_OWNER),
