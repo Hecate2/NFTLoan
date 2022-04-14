@@ -32,3 +32,5 @@
 
 - If you commented out the codes (`if (methodsExported.Any(u => u.Name...`) in the compiler but did not inject new codes (`Abimethod? foundMethod ...`), then delete the first `transfer` method in `NFTLoan/NFTLoan/bin/sc/NFTFlashLoan.manifest.json`. 
 
+- It's better to check the assembly codes with command `dumpnef NFTFlashLoan.nef > NFTFlashLoan.nef.txt` if you run into weird exceptions.
+
