@@ -23,6 +23,7 @@ namespace NFTLoan
         private const uint MIN_RENTAL_PRICE = 100;
         private const uint COLLATERAL_MULTIPLIER = 5000;
         private const uint COLLATERAL_DIVISOR = 10000;
+        private const string TRANSACTION_DATA = "NEPHRENT";
         private const byte PREFIX_REGISTERED_RENTAL_BY_TOKEN = (byte)'r';  // [EXTERNAL]tokenContract + [EXTERNAL](ByteString)(BigInteger)tokenId.Length + tokenId + renter -> StdLib.Serialize(amount, price)
         private const byte PREFIX_REGISTERED_RENTAL_BY_OWNER = (byte)'o';    // renter + [EXTERNAL]tokenContract + [EXTERNAL]tokenId -> StdLib.Serialize(amount, price)
         private const byte PREFIX_RENTAL_DEADLINE_BY_RENTER = (byte)'d';    // renter + [INTERNAL](ByteString)(BigInteger)tokenId.Length + tokenId + tenant + start_time -> StdLib.Serialize(amount, collateral, deadline, OpenForNextRental)
@@ -62,10 +63,10 @@ namespace NFTLoan
         [DisplayName("TokenWithdrawn")] // externalTokenContract, externalTokenId, amount
         public static event Action<UInt160, ByteString, BigInteger> OnTokenWithdrawn;
 
-        public static void OnNEP11Payment(UInt160 from, BigInteger amount, ByteString tokenId, BigInteger data)
+        public static void OnNEP11Payment(UInt160 from, BigInteger amount, ByteString tokenId, object data)
         {
-            ExecutionEngine.Assert(Runtime.CallingScriptHash != Runtime.ExecutingScriptHash,
-                "Do not send NFTs from this contract into this contract! You probably need the method payback or registerRental.");
+            ExecutionEngine.Assert((string)data == TRANSACTION_DATA,
+                "Do not send NFTs directly into this contract!");
         }
         public override string Symbol() => "NEPHRENT";
         public static BigInteger GetDecimals(UInt160 externalTokenContract) => (BigInteger)Contract.Call(externalTokenContract, "decimals", CallFlags.ReadStates);
@@ -102,7 +103,8 @@ namespace NFTLoan
 
         public new static bool Transfer(UInt160 from, UInt160 to, BigInteger amount, ByteString tokenId, object data)
         {
-            if (from != Runtime.ExecutingScriptHash) return false;
+            UInt160 executingScriptHash = Runtime.ExecutingScriptHash;
+            if (from != executingScriptHash && to != executingScriptHash) return false;
             if (!Runtime.CheckWitness(from)) return false;
             if (to is null || !to.IsValid)
                 throw new Exception("The argument \"to\" is invalid.");
@@ -220,11 +222,11 @@ namespace NFTLoan
             // Transfer is very risky. Consider a whitelist of tokens. 
             if (GetDecimals(externalTokenContract) == 0)
             {
-                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, externalTokenId, null), "Transfer failed");
+                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, externalTokenId, TRANSACTION_DATA), "Transfer failed");
                 amountForRent = 1;
             }
             else
-                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, Runtime.ExecutingScriptHash, amountForRent, externalTokenId, null), "Transfer failed");
+                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, Runtime.ExecutingScriptHash, amountForRent, externalTokenId, TRANSACTION_DATA), "Transfer failed");
 
             StorageContext context = Storage.CurrentContext;
             StorageMap registeredRentalByTokenMap = new(context, PREFIX_REGISTERED_RENTAL_BY_TOKEN);
@@ -290,13 +292,13 @@ namespace NFTLoan
                 amountToUnregister = 1;
                 UnregisterLoan(registeredRentalByTokenMap, registeredRentalByOwnerMap, externalTokenContract, renter, amountToUnregister, externalTokenId);
                 internalTokenId = BurnSubToken(externalTokenContract, externalTokenId, amountToUnregister);
-                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, externalTokenId, null), "Transfer failed");
+                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, externalTokenId, TRANSACTION_DATA), "Transfer failed");
             }
             else
             {
                 UnregisterLoan(registeredRentalByTokenMap, registeredRentalByOwnerMap, externalTokenContract, renter, amountToUnregister, externalTokenId);
                 internalTokenId = BurnSubToken(externalTokenContract, externalTokenId, amountToUnregister);
-                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, Runtime.ExecutingScriptHash, amountToUnregister, externalTokenId, null), "Transfer failed");
+                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, Runtime.ExecutingScriptHash, amountToUnregister, externalTokenId, TRANSACTION_DATA), "Transfer failed");
             }
 
             OnTokenWithdrawn(externalTokenContract, externalTokenId, amountToUnregister);
@@ -331,7 +333,7 @@ namespace NFTLoan
 
             BigInteger totalPrice = GetTotalPrice(amountAndPrice[1], borrowTimeMilliseconds);
             BigInteger collateral = GetCollateralAmount(totalPrice);
-            ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, tenant, renter, totalPrice + collateral, null), "Failed to pay GAS");
+            ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, tenant, renter, totalPrice + collateral, TRANSACTION_DATA), "Failed to pay GAS");
 
             amountAndPrice[0] -= amount;
             ExecutionEngine.Assert(amountAndPrice[0] >= 0, "No enough token to lend");
@@ -356,7 +358,7 @@ namespace NFTLoan
             rentalDeadlineByRenterMap.Put(key, serialized);
             new StorageMap(context, PREFIX_RENTAL_DEADLINE_BY_TENANT).Put(tenant + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter + startTime, serialized);
 
-            ExecutionEngine.Assert(Transfer(Runtime.ExecutingScriptHash, tenant, amount, internalTokenId, null));
+            ExecutionEngine.Assert(Transfer(Runtime.ExecutingScriptHash, tenant, amount, internalTokenId, TRANSACTION_DATA));
             OnTokenRented(renter, Runtime.ExecutingScriptHash, internalTokenId, tenant, startTime, amount, totalPrice, collateral, amountPriceDeadline[2]);
 
             return startTime;
@@ -424,11 +426,11 @@ namespace NFTLoan
                 BigInteger decimals = GetDecimals(externalTokenContract);
                 if (decimals == 0)
                 {
-                    ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, externalTokenId, null), "Transfer failed");
+                    ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, externalTokenId, TRANSACTION_DATA), "Transfer failed");
                 }
                 else
                 {
-                    ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, renter, amountCollateralDeadlineAndOpen[0], externalTokenId, null), "Transfer failed");
+                    ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, renter, amountCollateralDeadlineAndOpen[0], externalTokenId, TRANSACTION_DATA), "Transfer failed");
                 }
                 OnTokenWithdrawn(externalTokenContract, externalTokenId, amountCollateralDeadlineAndOpen[0]);
             }
@@ -441,7 +443,7 @@ namespace NFTLoan
                     Runtime.ExecutingScriptHash, renter, amountCollateralDeadlineAndOpen[0], internalTokenId);
             }
             OnRentalRevoked(renter, internalTokenId, tenant, (BigInteger)startTime, amountCollateralDeadlineAndOpen[0], amountCollateralDeadlineAndOpen[1], amountCollateralDeadlineAndOpen[2]);
-            ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, collateralReceiver, amountCollateralDeadlineAndOpen[1], null));
+            ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, collateralReceiver, amountCollateralDeadlineAndOpen[1], TRANSACTION_DATA));
         }
 
         public static object FlashBorrowDivisible(
@@ -468,7 +470,7 @@ namespace NFTLoan
                     if (availableAmount > stillNeededAmount) { availableAmount = stillNeededAmount; }
                     rentedAmount += availableAmount;
                     rentalPrice = Max(availableAmount * amountAndPrice[1], MIN_RENTAL_PRICE);
-                    ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, tenant, renter, rentalPrice, null ), "GAS transfer failed");
+                    ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, tenant, renter, rentalPrice, TRANSACTION_DATA), "GAS transfer failed");
                     OnTokenRented(renter, token, tokenId, tenant, Runtime.Time, amountAndPrice[0], rentalPrice, 0, Runtime.Time);
                 }
                 ExecutionEngine.Assert(rentedAmount == neededAmount, "No enough NFTs to rent");
@@ -479,14 +481,14 @@ namespace NFTLoan
                 BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize(tokenForRental[token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter]);
                 ExecutionEngine.Assert(amountAndPrice[0] > neededAmount, "No enough NFTs to rent");
                 rentalPrice = Max(amountAndPrice[0] * amountAndPrice[1], MIN_RENTAL_PRICE);
-                ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, tenant, renter, rentalPrice, null ), "GAS transfer failed");
+                ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, tenant, renter, rentalPrice, TRANSACTION_DATA), "GAS transfer failed");
                 OnTokenRented(renter, token, tokenId, tenant, Runtime.Time, amountAndPrice[0], rentalPrice, 0, Runtime.Time);
             }
-            ExecutionEngine.Assert((bool)Contract.Call(token, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, tenant, neededAmount, tokenId, null), "NFT transfer failed");
+            ExecutionEngine.Assert((bool)Contract.Call(token, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, tenant, neededAmount, tokenId, TRANSACTION_DATA), "NFT transfer failed");
 
             object result = Contract.Call(renterCalledContract, renterCalledMethod, CallFlags.All, arguments);
 
-            ExecutionEngine.Assert((bool)Contract.Call(token, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, tenant, neededAmount, tokenId, null), "NFT payback failed");
+            ExecutionEngine.Assert((bool)Contract.Call(token, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, tenant, neededAmount, tokenId, TRANSACTION_DATA), "NFT payback failed");
             return result;
         }
 
@@ -499,13 +501,13 @@ namespace NFTLoan
             ExecutionEngine.Assert(rentalIterator.Next(), "Failed to find renter");
             BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize((ByteString)rentalIterator.Value);
             BigInteger rentalPrice = Max(amountAndPrice[1], MIN_RENTAL_PRICE);
-            ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, tenant, renter, rentalPrice, null), "GAS transfer failed");
+            ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, tenant, renter, rentalPrice, TRANSACTION_DATA), "GAS transfer failed");
             OnTokenRented(renter, token, tokenId, tenant, Runtime.Time, amountAndPrice[0], amountAndPrice[0] * rentalPrice, 0, Runtime.Time);
-            ExecutionEngine.Assert((bool)Contract.Call(token, "transfer", CallFlags.All, tenant, tokenId, null), "NFT transfer failed");
+            ExecutionEngine.Assert((bool)Contract.Call(token, "transfer", CallFlags.All, tenant, tokenId, TRANSACTION_DATA), "NFT transfer failed");
 
             object result = Contract.Call(calledContract, calledMethod, CallFlags.All, arguments);
 
-            ExecutionEngine.Assert((bool)Contract.Call(token, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, tokenId, null), "NFT payback failed");
+            ExecutionEngine.Assert((bool)Contract.Call(token, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, tokenId, TRANSACTION_DATA), "NFT payback failed");
             return result;
         }
     }
