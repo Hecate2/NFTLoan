@@ -335,9 +335,18 @@ namespace NFTLoan
 
             amountAndPrice[0] -= amount;
             ExecutionEngine.Assert(amountAndPrice[0] >= 0, "No enough token to lend");
-            ByteString serialized = StdLib.Serialize(amountAndPrice);
-            registeredRentalByTokenMap.Put(key, serialized);
-            new StorageMap(context, PREFIX_REGISTERED_RENTAL_BY_OWNER).Put(renter + externalTokenContract + externalTokenId, serialized);
+            ByteString serialized;
+            if (amountAndPrice[0] > 0)
+            {
+                serialized = StdLib.Serialize(amountAndPrice);
+                registeredRentalByTokenMap.Put(key, serialized);
+                new StorageMap(context, PREFIX_REGISTERED_RENTAL_BY_OWNER).Put(renter + externalTokenContract + externalTokenId, serialized);
+            }
+            else
+            {
+                registeredRentalByTokenMap.Delete(key);
+                new StorageMap(context, PREFIX_REGISTERED_RENTAL_BY_OWNER).Delete(renter + externalTokenContract + externalTokenId);
+            }
 
             StorageMap rentalDeadlineByRenterMap = new(context, PREFIX_RENTAL_DEADLINE_BY_RENTER);
             key = renter + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + tenant + startTime;
