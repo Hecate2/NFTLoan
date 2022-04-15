@@ -213,20 +213,20 @@ namespace NFTLoan
         /// <param name="ordinaryLoanPrice">GAS (1e8) price per second (not millisecond!). Minimum for each loan: <see cref="MIN_RENTAL_PRICE"/>.</param>
         public static BigInteger RegisterRental(
             UInt160 renter, UInt160 externalTokenContract, BigInteger amountForRent, ByteString externalTokenId,
-            BigInteger flashLoanPrice, BigInteger ordinaryLoanPrice)
+            BigInteger flashLoanPrice, BigInteger ordinaryLoanPrice, bool isDivisible=false)
         {
             // No need to Runtime.CheckWitness(renter), because we will transfer NFT from renter to this contract.
             ExecutionEngine.Assert(externalTokenId.Length <= 64, "tokenId.Length > 64");
             ExecutionEngine.Assert(externalTokenContract != Runtime.ExecutingScriptHash, "Cannot register rental for tokens issued by this contract");
             // ExecutionEngine.Assert(amountForRent > 0, "amountForRent <= 0");  // unnecessary
             // Transfer is very risky. Consider a whitelist of tokens. 
-            if (GetDecimals(externalTokenContract) == 0)
+            if (isDivisible)
+                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, Runtime.ExecutingScriptHash, amountForRent, externalTokenId, TRANSACTION_DATA), "Transfer failed");
+            else
             {
                 ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, externalTokenId, TRANSACTION_DATA), "Transfer failed");
                 amountForRent = 1;
             }
-            else
-                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, Runtime.ExecutingScriptHash, amountForRent, externalTokenId, TRANSACTION_DATA), "Transfer failed");
 
             StorageContext context = Storage.CurrentContext;
             StorageMap registeredRentalByTokenMap = new(context, PREFIX_REGISTERED_RENTAL_BY_TOKEN);
@@ -276,7 +276,8 @@ namespace NFTLoan
             return amount;
         }
 
-        public static BigInteger UnregisterRental(UInt160 renter, UInt160 externalTokenContract, BigInteger amountToUnregister, ByteString externalTokenId)
+        public static BigInteger UnregisterRental(
+            UInt160 renter, UInt160 externalTokenContract, BigInteger amountToUnregister, ByteString externalTokenId, bool isDivisible=false)
         {
             ExecutionEngine.Assert(Runtime.CheckWitness(renter), "No witness");
             ExecutionEngine.Assert(externalTokenContract != Runtime.ExecutingScriptHash, "Cannot unregister rental for tokens issued by this contract");
@@ -287,18 +288,18 @@ namespace NFTLoan
             StorageMap registeredRentalByOwnerMap = new(context, PREFIX_REGISTERED_RENTAL_BY_OWNER);
 
             ByteString internalTokenId;
-            if (GetDecimals(externalTokenContract) == 0)
+            if (isDivisible)
+            {
+                UnregisterLoan(registeredRentalByTokenMap, registeredRentalByOwnerMap, externalTokenContract, renter, amountToUnregister, externalTokenId);
+                internalTokenId = BurnSubToken(externalTokenContract, externalTokenId, amountToUnregister);
+                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, Runtime.ExecutingScriptHash, amountToUnregister, externalTokenId, TRANSACTION_DATA), "Transfer failed");
+            }
+            else
             {
                 amountToUnregister = 1;
                 UnregisterLoan(registeredRentalByTokenMap, registeredRentalByOwnerMap, externalTokenContract, renter, amountToUnregister, externalTokenId);
                 internalTokenId = BurnSubToken(externalTokenContract, externalTokenId, amountToUnregister);
                 ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, externalTokenId, TRANSACTION_DATA), "Transfer failed");
-            }
-            else
-            {
-                UnregisterLoan(registeredRentalByTokenMap, registeredRentalByOwnerMap, externalTokenContract, renter, amountToUnregister, externalTokenId);
-                internalTokenId = BurnSubToken(externalTokenContract, externalTokenId, amountToUnregister);
-                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, Runtime.ExecutingScriptHash, amountToUnregister, externalTokenId, TRANSACTION_DATA), "Transfer failed");
             }
 
             OnTokenWithdrawn(externalTokenContract, externalTokenId, amountToUnregister);
@@ -395,19 +396,21 @@ namespace NFTLoan
             OnRentalOpened(renter, internalTokenId, tenant, (BigInteger)startTime, amountCollateralDeadlineAndOpen[0], amountCollateralDeadlineAndOpen[1], amountCollateralDeadlineAndOpen[2]);
         }
 
-        public static void Payback(UInt160 renter, UInt160 tenant, UInt160 externalTokenContract, ByteString externalTokenId, ByteString startTime, UInt160 collateralReceiver)
+        public static void Payback(UInt160 renter, UInt160 tenant, UInt160 externalTokenContract, ByteString externalTokenId, ByteString startTime, UInt160 collateralReceiver, bool isDivisible = false)
         {
             ByteString internalTokenId = new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL).Get(externalTokenContract + externalTokenId);
-            Payback(renter, tenant, internalTokenId, externalTokenContract, externalTokenId, startTime, collateralReceiver);
+            Payback(renter, tenant, internalTokenId, externalTokenContract, externalTokenId, startTime, collateralReceiver, isDivisible);
         }
 
-        public static void Payback(UInt160 renter, UInt160 tenant, ByteString internalTokenId, ByteString startTime, UInt160 collateralReceiver)
+        public static void Payback(UInt160 renter, UInt160 tenant, ByteString internalTokenId, ByteString startTime, UInt160 collateralReceiver, bool isDivisible = false)
         {
             ByteString[] externaltokenContractAndId = (ByteString[])StdLib.Deserialize(new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Get(internalTokenId));
-            Payback(renter, tenant, internalTokenId, (UInt160)externaltokenContractAndId[0], externaltokenContractAndId[1], startTime, collateralReceiver);
+            Payback(renter, tenant, internalTokenId, (UInt160)externaltokenContractAndId[0], externaltokenContractAndId[1], startTime, collateralReceiver, isDivisible);
         }
 
-        private static void Payback(UInt160 renter, UInt160 tenant, ByteString internalTokenId, UInt160 externalTokenContract, ByteString externalTokenId, ByteString startTime, UInt160 collateralReceiver)
+        private static void Payback(
+            UInt160 renter, UInt160 tenant, ByteString internalTokenId, UInt160 externalTokenContract, ByteString externalTokenId, ByteString startTime, UInt160 collateralReceiver,
+            bool isDivisible=false)
         {
             StorageContext context = Storage.CurrentContext;
 
@@ -423,14 +426,13 @@ namespace NFTLoan
             {
                 // if RentalState.ClosedForNextRental,
                 // burn the rented tokens and give the original NFT back to the owner
-                BigInteger decimals = GetDecimals(externalTokenContract);
-                if (decimals == 0)
+                if (isDivisible)
                 {
-                    ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, externalTokenId, TRANSACTION_DATA), "Transfer failed");
+                    ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, renter, amountCollateralDeadlineAndOpen[0], externalTokenId, TRANSACTION_DATA), "Transfer failed");
                 }
                 else
                 {
-                    ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, renter, amountCollateralDeadlineAndOpen[0], externalTokenId, TRANSACTION_DATA), "Transfer failed");
+                    ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, externalTokenId, TRANSACTION_DATA), "Transfer failed");
                 }
                 OnTokenWithdrawn(externalTokenContract, externalTokenId, amountCollateralDeadlineAndOpen[0]);
             }
