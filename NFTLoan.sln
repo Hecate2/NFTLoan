@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DivisibleNep11Token", "Divi
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NFTLoan", "NFTLoan\NFTLoan.csproj", "{98121960-B58F-427E-B248-81655B590690}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NophtD", "NophtD\NophtD.csproj", "{8182A2D9-C4B1-4967-9E5B-E2691CD547CE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{98121960-B58F-427E-B248-81655B590690}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{98121960-B58F-427E-B248-81655B590690}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{98121960-B58F-427E-B248-81655B590690}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8182A2D9-C4B1-4967-9E5B-E2691CD547CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8182A2D9-C4B1-4967-9E5B-E2691CD547CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8182A2D9-C4B1-4967-9E5B-E2691CD547CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8182A2D9-C4B1-4967-9E5B-E2691CD547CE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
