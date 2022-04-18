@@ -17,6 +17,7 @@ namespace NFTLoan
     [ManifestExtra("Author", "Hecate2")]
     [ManifestExtra("Email", "developer@neo.org")]
     [ManifestExtra("Description", "NFTFlashLoan")]
+    [ContractPermission("*", "*")]
     public class NFTLoan : DivisibleNep11Token<DivisibleNep11TokenState>
     {
         private const uint MAX_RENTAL_PERIOD = 86400 * 1000 * 10;  // 10 days; uint supports <= 49 days
@@ -62,6 +63,12 @@ namespace NFTLoan
         // Fires whenever a token rent is withdrawn
         [DisplayName("TokenWithdrawn")] // externalTokenContract, externalTokenId, amount
         public static event Action<UInt160, ByteString, BigInteger> OnTokenWithdrawn;
+
+        public static void _deploy(object data, bool update)
+        {
+            if (update) return;
+            Storage.Put(Storage.CurrentContext, new byte[] { Prefix_TokenId }, 1);
+        }
 
         public static void OnNEP11Payment(UInt160 from, BigInteger amount, ByteString tokenId, object data)
         {
@@ -150,7 +157,7 @@ namespace NFTLoan
             StorageMap externalToInternal = new(context, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL);
             ByteString externalTokenInfo = externalTokenContract + externalTokenId;
             ByteString internalTokenId = externalToInternal.Get(externalTokenInfo);
-            if (internalTokenId == UInt160.Zero)
+            if (internalTokenId is null)
             {
                 internalTokenId = NewTokenId();
                 externalToInternal.Put(externalTokenInfo, internalTokenId);
@@ -180,9 +187,16 @@ namespace NFTLoan
             // the tokenId of the external tokenContract
             // else tokenId is the internalTokenId of Runtime.ExecutingScriptHash
             ByteString key = tokenContract + (ByteString)(BigInteger)tokenId.Length + tokenId + renter;
-            BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize(registeredRentalByTokenMap.Get(key));
-            amountAndPrice[0] += amount;
-            amountAndPrice[1] = price;
+            ByteString amountAndPriceByteString = registeredRentalByTokenMap.Get(key);
+            BigInteger[] amountAndPrice;
+            if (amountAndPriceByteString != null)
+            {
+                amountAndPrice = (BigInteger[])StdLib.Deserialize(amountAndPriceByteString);
+                amountAndPrice[0] += amount;
+                amountAndPrice[1] = price;
+            }
+            else
+                amountAndPrice = new BigInteger[] {amount, price};
             ByteString serialized = StdLib.Serialize(amountAndPrice);
             registeredRentalByTokenMap.Put(key, serialized);
             registeredRentalByOwnerMap.Put(renter + tokenContract + tokenId, serialized);
@@ -353,7 +367,7 @@ namespace NFTLoan
 
             StorageMap rentalDeadlineByRenterMap = new(context, PREFIX_RENTAL_DEADLINE_BY_RENTER);
             key = renter + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + tenant + startTime;
-            ExecutionEngine.Assert(rentalDeadlineByRenterMap[key] == "", "Cannot borrow twice in a single block");
+            ExecutionEngine.Assert(rentalDeadlineByRenterMap[key] is null, "Cannot borrow twice in a single block");
             BigInteger[] amountPriceDeadline = new BigInteger[] { amount, collateral, startTime + borrowTimeMilliseconds, 1 };
             serialized = StdLib.Serialize(amountPriceDeadline);
             rentalDeadlineByRenterMap.Put(key, serialized);

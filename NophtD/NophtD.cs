@@ -14,6 +14,7 @@ namespace NophtD
     [ManifestExtra("Author", "Hecate2")]
     [ManifestExtra("Email", "developer@neo.org")]
     [ManifestExtra("Description", "NophtD: Divisible NFT for test only")]
+    [ContractPermission("*", "*")]
     public class NophtD : DivisibleNep11Token<DivisibleNep11TokenState>
     {
         [InitialValue("Nb2CHYY5wTh2ac58mTue5S3wpG6bQv5hSY", ContractParameterType.Hash160)]
