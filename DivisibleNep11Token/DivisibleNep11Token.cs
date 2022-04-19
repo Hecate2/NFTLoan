@@ -117,6 +117,16 @@ namespace Neo.SmartContract.Framework
             PostTransfer(null, owner, tokenId, null);
         }
 
+        protected static void Mint(UInt160 owner, BigInteger amount, ByteString tokenId, TokenState token, object data)
+        {
+            ExecutionEngine.Assert(amount > 0, "mint amount <= 0");
+            StorageMap tokenMap = new(Storage.CurrentContext, Prefix_Token);
+            tokenMap[tokenId] = StdLib.Serialize(token);
+            UpdateBalance(owner, tokenId, amount);
+            UpdateTotalSupply(amount);
+            PostTransfer(null, owner, tokenId, data);
+        }
+
         protected static void Burn(UInt160 owner, BigInteger amount, ByteString tokenId)
         {
             ExecutionEngine.Assert(amount > 0, "burn amount <= 0");

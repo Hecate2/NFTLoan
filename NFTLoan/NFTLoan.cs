@@ -163,7 +163,7 @@ namespace NFTLoan
                 externalToInternal.Put(externalTokenInfo, internalTokenId);
                 new StorageMap(context, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Put(internalTokenId, externalTokenInfo);
             }
-            Mint(Runtime.ExecutingScriptHash, amount, internalTokenId, new DivisibleNep11TokenState { Name = externalTokenInfo });
+            Mint(Runtime.ExecutingScriptHash, amount, internalTokenId, new DivisibleNep11TokenState { Name = externalTokenInfo }, TRANSACTION_DATA);
             OnTokenCreated(externalTokenContract, externalTokenContract, internalTokenId, amount);
             return internalTokenId;
         }
@@ -173,7 +173,7 @@ namespace NFTLoan
             StorageContext context = Storage.CurrentContext;
             StorageMap externalToInternal = new(context, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL);
             ByteString externalTokenInfo = externalTokenContract + externalTokenId;
-            Mint(Runtime.ExecutingScriptHash, amount, internalTokenId, new DivisibleNep11TokenState { Name = externalTokenInfo });
+            Mint(Runtime.ExecutingScriptHash, amount, internalTokenId, new DivisibleNep11TokenState { Name = externalTokenInfo }, TRANSACTION_DATA);
             OnTokenCreated(externalTokenContract, externalTokenContract, internalTokenId, amount);
             return internalTokenId;
         }
