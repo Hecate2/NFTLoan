@@ -138,8 +138,9 @@ namespace NFTLoan
         public static void SetRentalPrice(UInt160 renter, UInt160 tokenContract, ByteString tokenId, BigInteger price)
         {
             ExecutionEngine.Assert(Runtime.CheckWitness(renter), "No witness");
+            StorageContext context = Storage.CurrentContext;
 
-            StorageMap registeredRentalByTokenMap = new(Storage.CurrentContext, PREFIX_REGISTERED_RENTAL_BY_TOKEN);
+            StorageMap registeredRentalByTokenMap = new(context, PREFIX_REGISTERED_RENTAL_BY_TOKEN);
             ByteString key = tokenContract + (ByteString)(BigInteger)tokenId.Length + tokenId + renter;
             BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize(registeredRentalByTokenMap.Get(key));
             ExecutionEngine.Assert(amountAndPrice[0] > 0, "No token at rental");
@@ -147,7 +148,7 @@ namespace NFTLoan
             ByteString serialized = StdLib.Serialize(amountAndPrice);
             registeredRentalByTokenMap.Put(key, serialized);
 
-            StorageMap registeredRentalByOwnerMap = new (Storage.CurrentContext, PREFIX_REGISTERED_RENTAL_BY_OWNER);
+            StorageMap registeredRentalByOwnerMap = new (context, PREFIX_REGISTERED_RENTAL_BY_OWNER);
             registeredRentalByOwnerMap.Put(renter + tokenContract + tokenId, serialized);
         }
 
