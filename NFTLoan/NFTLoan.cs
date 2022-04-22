@@ -371,12 +371,12 @@ namespace NFTLoan
             }
 
             StorageMap rentalDeadlineByRenterMap = new(context, PREFIX_RENTAL_DEADLINE_BY_RENTER);
-            key = renter + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + tenant + startTime;
+            key = renter + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + tenant + (ByteString)startTime;
             ExecutionEngine.Assert(rentalDeadlineByRenterMap[key] is null, "Cannot borrow twice in a single block");
             BigInteger[] amountPriceDeadline = new BigInteger[] { amount, collateral, startTime + borrowTimeMilliseconds, 1 };
             serialized = StdLib.Serialize(amountPriceDeadline);
             rentalDeadlineByRenterMap.Put(key, serialized);
-            new StorageMap(context, PREFIX_RENTAL_DEADLINE_BY_TENANT).Put(tenant + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter + startTime, serialized);
+            new StorageMap(context, PREFIX_RENTAL_DEADLINE_BY_TENANT).Put(tenant + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter + (ByteString)startTime, serialized);
 
             ExecutionEngine.Assert(Transfer(Runtime.ExecutingScriptHash, tenant, amount, internalTokenId, TRANSACTION_DATA));
             OnTokenRented(renter, Runtime.ExecutingScriptHash, internalTokenId, tenant, startTime, amount, totalPrice, collateral, amountPriceDeadline[2]);
