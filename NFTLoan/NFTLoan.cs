@@ -79,20 +79,24 @@ namespace NFTLoan
         public static BigInteger GetDecimals(UInt160 externalTokenContract) => (BigInteger)Contract.Call(externalTokenContract, "decimals", CallFlags.ReadStates);
         public static BigInteger BalanceOfRentalToken(ByteString internalTokenId) => BalanceOf(Runtime.ExecutingScriptHash, internalTokenId);
 
+        public static Iterator ListRegisteredRentalByToken() => new StorageMap(Storage.CurrentContext, PREFIX_REGISTERED_RENTAL_BY_TOKEN).Find();
         public static Iterator ListRegisteredRentalByToken(UInt160 externalTokenContract) => new StorageMap(Storage.CurrentContext, PREFIX_REGISTERED_RENTAL_BY_TOKEN).Find(externalTokenContract, FindOptions.RemovePrefix);
         public static Iterator ListRegisteredRentalByToken(UInt160 externalTokenContract, ByteString externalTokenId) => new StorageMap(Storage.CurrentContext, PREFIX_REGISTERED_RENTAL_BY_TOKEN).Find(externalTokenContract + (ByteString)(BigInteger)externalTokenId.Length + externalTokenId, FindOptions.RemovePrefix);
         public static BigInteger[] GetRegisteredRentalByToken(UInt160 externalTokenContract, ByteString externalTokenId, UInt160 renter) => (BigInteger[])StdLib.Deserialize(new StorageMap(Storage.CurrentContext, PREFIX_REGISTERED_RENTAL_BY_TOKEN).Get(externalTokenContract + (ByteString)(BigInteger)externalTokenId.Length + externalTokenId + renter));
 
+        public static Iterator ListRegisteredRentalByRenter() => new StorageMap(Storage.CurrentContext, PREFIX_REGISTERED_RENTAL_BY_OWNER).Find();
         public static Iterator ListRegisteredRentalByRenter(UInt160 renter) => new StorageMap(Storage.CurrentContext, PREFIX_REGISTERED_RENTAL_BY_OWNER).Find(renter, FindOptions.RemovePrefix);
         public static Iterator ListRegisteredRentalByRenter(UInt160 renter, UInt160 externalTokenContract) => new StorageMap(Storage.CurrentContext, PREFIX_REGISTERED_RENTAL_BY_OWNER).Find(renter + externalTokenContract, FindOptions.RemovePrefix);
         public static BigInteger[] GetRegisteredRentalByRenter(UInt160 renter, UInt160 externalTokenContract, ByteString externalTokenId) => (BigInteger[])StdLib.Deserialize(new StorageMap(Storage.CurrentContext, PREFIX_REGISTERED_RENTAL_BY_OWNER).Get(renter + externalTokenContract + externalTokenId));
 
+        public static Iterator ListRentalDeadlineByRenter() => new StorageMap(Storage.CurrentContext, PREFIX_RENTAL_DEADLINE_BY_RENTER).Find(FindOptions.RemovePrefix);
         public static Iterator ListRentalDeadlineByRenter(UInt160 renter) => new StorageMap(Storage.CurrentContext, PREFIX_RENTAL_DEADLINE_BY_RENTER).Find(renter, FindOptions.RemovePrefix);
         public static Iterator ListRentalDeadlineByRenter(UInt160 renter, UInt160 token) => new StorageMap(Storage.CurrentContext, PREFIX_RENTAL_DEADLINE_BY_RENTER).Find(renter + token, FindOptions.RemovePrefix);
         public static Iterator ListRentalDeadlineByRenter(UInt160 renter, UInt160 token, ByteString tokenId) => new StorageMap(Storage.CurrentContext, PREFIX_RENTAL_DEADLINE_BY_RENTER).Find(renter + token + (ByteString)(BigInteger)tokenId.Length + tokenId, FindOptions.RemovePrefix);
         public static Iterator ListRentalDeadlineByRenter(UInt160 renter, UInt160 token, ByteString tokenId, UInt160 tenant) => new StorageMap(Storage.CurrentContext, PREFIX_RENTAL_DEADLINE_BY_RENTER).Find(renter + token + (ByteString)(BigInteger)tokenId.Length + tokenId + tenant, FindOptions.RemovePrefix);
         public static BigInteger[] GetRentalDeadlineByRenter(UInt160 renter, UInt160 token, ByteString tokenId, UInt160 tenant, BigInteger startTime) => (BigInteger[])StdLib.Deserialize(new StorageMap(Storage.CurrentContext, PREFIX_RENTAL_DEADLINE_BY_RENTER).Get(renter + token + (ByteString)(BigInteger)tokenId.Length + tokenId + tenant + (ByteString)startTime));
 
+        public static Iterator ListRentalDeadlineByTenant() => new StorageMap(Storage.CurrentContext, PREFIX_RENTAL_DEADLINE_BY_TENANT).Find(FindOptions.RemovePrefix);
         public static Iterator ListRentalDeadlineByTenant(UInt160 tenant) => new StorageMap(Storage.CurrentContext, PREFIX_RENTAL_DEADLINE_BY_TENANT).Find(tenant, FindOptions.RemovePrefix);
         public static Iterator ListRentalDeadlineByTenant(UInt160 tenant, UInt160 token) => new StorageMap(Storage.CurrentContext, PREFIX_RENTAL_DEADLINE_BY_TENANT).Find(tenant + token, FindOptions.RemovePrefix);
         public static Iterator ListRentalDeadlineByTenant(UInt160 tenant, UInt160 token, ByteString tokenId) => new StorageMap(Storage.CurrentContext, PREFIX_RENTAL_DEADLINE_BY_TENANT).Find(tenant + token + (ByteString)(BigInteger)tokenId.Length + tokenId, FindOptions.RemovePrefix);
