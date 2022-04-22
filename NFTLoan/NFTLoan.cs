@@ -333,8 +333,8 @@ namespace NFTLoan
 
         public static BigInteger Borrow(UInt160 renter, UInt160 tenant, BigInteger amount, ByteString internalTokenId, BigInteger borrowTimeMilliseconds)
         {
-            ByteString[] externalTokenContractAndId = (ByteString[])StdLib.Deserialize(new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Get(internalTokenId));
-            return Borrow(renter, tenant, amount, internalTokenId, (UInt160)externalTokenContractAndId[0], externalTokenContractAndId[1], borrowTimeMilliseconds);
+            byte[] externalTokenContractAndId = (byte[])new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Get(internalTokenId);
+            return Borrow(renter, tenant, amount, internalTokenId, (UInt160)externalTokenContractAndId[..20], (ByteString)externalTokenContractAndId[20..], borrowTimeMilliseconds);
         }
 
         private static BigInteger Borrow(UInt160 renter, UInt160 tenant, BigInteger amount, ByteString internalTokenId, UInt160 externalTokenContract, ByteString externalTokenId, BigInteger borrowTimeMilliseconds)
@@ -344,7 +344,7 @@ namespace NFTLoan
             ExecutionEngine.Assert(borrowTimeMilliseconds < MAX_RENTAL_PERIOD, "Too long borrow time");
             StorageContext context = Storage.CurrentContext;
             StorageMap registeredRentalByTokenMap = new(context, PREFIX_REGISTERED_RENTAL_BY_TOKEN);
-            ByteString key = externalTokenId + externalTokenId.Length + externalTokenId + renter;
+            ByteString key = externalTokenContract + (ByteString)(BigInteger)externalTokenId.Length + externalTokenId + renter;
             BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize(registeredRentalByTokenMap.Get(key));
 
             BigInteger totalPrice = GetTotalPrice(amountAndPrice[1], borrowTimeMilliseconds);
@@ -419,8 +419,8 @@ namespace NFTLoan
 
         public static void Payback(UInt160 renter, UInt160 tenant, ByteString internalTokenId, ByteString startTime, UInt160 collateralReceiver, bool isDivisible = false)
         {
-            ByteString[] externaltokenContractAndId = (ByteString[])StdLib.Deserialize(new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Get(internalTokenId));
-            Payback(renter, tenant, internalTokenId, (UInt160)externaltokenContractAndId[0], externaltokenContractAndId[1], startTime, collateralReceiver, isDivisible);
+            byte[] externaltokenContractAndId = (byte[])new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_INTERNAL_TO_EXTERNAL).Get(internalTokenId);
+            Payback(renter, tenant, internalTokenId, (UInt160)externaltokenContractAndId[..20], (ByteString)externaltokenContractAndId[20..], startTime, collateralReceiver, isDivisible);
         }
 
         private static void Payback(
