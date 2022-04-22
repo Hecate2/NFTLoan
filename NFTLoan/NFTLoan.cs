@@ -395,7 +395,7 @@ namespace NFTLoan
             amountCollateralDeadlineAndOpen[3] = 0;
             ByteString serialized = StdLib.Serialize(amountCollateralDeadlineAndOpen);
             rentalDeadlineByRenterMap[key] = serialized;
-            StorageMap rentalDeadlineByTenantMap = new(context, PREFIX_RENTAL_DEADLINE_BY_RENTER);
+            StorageMap rentalDeadlineByTenantMap = new(context, PREFIX_RENTAL_DEADLINE_BY_TENANT);
             rentalDeadlineByTenantMap[tenant + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter + startTime] = serialized;
             OnRentalClosed(renter, internalTokenId, tenant, (BigInteger)startTime, amountCollateralDeadlineAndOpen[0], amountCollateralDeadlineAndOpen[1], amountCollateralDeadlineAndOpen[2]);
         }
@@ -410,7 +410,7 @@ namespace NFTLoan
             amountCollateralDeadlineAndOpen[3] = 1;
             ByteString serialized = StdLib.Serialize(amountCollateralDeadlineAndOpen);
             rentalDeadlineByRenterMap[key] = serialized;
-            StorageMap rentalDeadlineByTenantMap = new(context, PREFIX_RENTAL_DEADLINE_BY_RENTER);
+            StorageMap rentalDeadlineByTenantMap = new(context, PREFIX_RENTAL_DEADLINE_BY_TENANT);
             rentalDeadlineByTenantMap[tenant + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter + startTime] = serialized;
             OnRentalOpened(renter, internalTokenId, tenant, (BigInteger)startTime, amountCollateralDeadlineAndOpen[0], amountCollateralDeadlineAndOpen[1], amountCollateralDeadlineAndOpen[2]);
         }
