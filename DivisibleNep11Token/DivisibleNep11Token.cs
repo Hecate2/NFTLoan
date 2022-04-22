@@ -51,7 +51,7 @@ namespace Neo.SmartContract.Framework
         public static BigInteger BalanceOf(UInt160 owner, ByteString tokenId)
         {
             if (!owner.IsValid) throw new Exception("The argument \"owner\" is invalid");
-            if (tokenId.Length <= 64) throw new Exception("tokenId.Length > 64");
+            if (tokenId.Length > 64) throw new Exception("tokenId.Length > 64");
             return (BigInteger)new StorageMap(Storage.CurrentContext, Prefix_AccountToken).Get(owner + tokenId);
         }
 
