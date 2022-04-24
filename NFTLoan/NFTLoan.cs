@@ -314,7 +314,7 @@ namespace NFTLoan
             {
                 UnregisterLoan(registeredRentalByTokenMap, registeredRentalByOwnerMap, externalTokenContract, renter, amountToUnregister, externalTokenId);
                 internalTokenId = BurnSubToken(externalTokenContract, externalTokenId, amountToUnregister);
-                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, Runtime.ExecutingScriptHash, amountToUnregister, externalTokenId, TRANSACTION_DATA), "Transfer failed");
+                ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, renter, amountToUnregister, externalTokenId, TRANSACTION_DATA), "Transfer failed");
             }
             else
             {
@@ -440,20 +440,26 @@ namespace NFTLoan
                 ExecutionEngine.Assert(Runtime.CheckWitness(tenant), "Rental not expired. Need signature from tenant");
             rentalDeadlineByTenantMap.Delete(key);
             new StorageMap(context, PREFIX_RENTAL_DEADLINE_BY_RENTER).Delete(renter + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + tenant + startTime);
-            Burn(tenant, amountCollateralDeadlineAndOpen[0], internalTokenId);
+            BigInteger amountToUnregister = amountCollateralDeadlineAndOpen[0];
+            Burn(tenant, amountToUnregister, internalTokenId);
             if (amountCollateralDeadlineAndOpen[3] == 0)
             {
                 // if RentalState.ClosedForNextRental,
                 // burn the rented tokens and give the original NFT back to the owner
+                StorageMap registeredRentalByTokenMap = new(context, PREFIX_REGISTERED_RENTAL_BY_TOKEN);
+                StorageMap registeredRentalByOwnerMap = new(context, PREFIX_REGISTERED_RENTAL_BY_OWNER);
                 if (isDivisible)
                 {
-                    ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, renter, amountCollateralDeadlineAndOpen[0], externalTokenId, TRANSACTION_DATA), "Transfer failed");
+                    UnregisterLoan(registeredRentalByTokenMap, registeredRentalByOwnerMap, externalTokenContract, renter, amountToUnregister, externalTokenId);
+                    ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, renter, amountToUnregister, externalTokenId, TRANSACTION_DATA), "Transfer failed");
                 }
                 else
                 {
+                    //amountToUnregister = 1;
+                    UnregisterLoan(registeredRentalByTokenMap, registeredRentalByOwnerMap, externalTokenContract, renter, amountToUnregister, externalTokenId);
                     ExecutionEngine.Assert((bool)Contract.Call(externalTokenContract, "transfer", CallFlags.All, renter, externalTokenId, TRANSACTION_DATA), "Transfer failed");
                 }
-                OnTokenWithdrawn(externalTokenContract, externalTokenId, amountCollateralDeadlineAndOpen[0]);
+                OnTokenWithdrawn(externalTokenContract, externalTokenId, amountToUnregister);
             }
             else
             {
