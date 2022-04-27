@@ -40,7 +40,7 @@ namespace Neo.SmartContract.Framework
         [Safe]
         public static Iterator OwnerOf(ByteString tokenId)
         {
-            ExecutionEngine.Assert(tokenId.Length <= 64, "tokenId.Length > 64");
+            if (tokenId.Length > 64) throw new Exception("tokenId.Length > 64");
             return new StorageMap(Storage.CurrentContext, Prefix_TokenOwner).Find(
                 (ByteString)(BigInteger)tokenId.Length + tokenId,
                 FindOptions.RemovePrefix|FindOptions.KeysOnly
@@ -87,12 +87,12 @@ namespace Neo.SmartContract.Framework
             if (to is null || !to.IsValid)
                 throw new Exception("The argument \"to\" is invalid.");
             if (amount < 0) throw new Exception("amount < 0");
-            if (from != to)
-            {
-                UpdateBalance(from, tokenId, -amount);
-                UpdateBalance(to, tokenId, +amount);
-            }
-            PostTransfer(from, to, tokenId, data);
+            if (  from != to
+                  && UpdateBalance(from, tokenId, -amount)
+                  && UpdateBalance(to, tokenId, +amount))
+                PostTransfer(from, to, tokenId, data);
+            else
+                return false;
             return true;
         }
 
@@ -107,19 +107,9 @@ namespace Neo.SmartContract.Framework
             return CryptoLib.Sha256(data);
         }
 
-        protected static void Mint(UInt160 owner, BigInteger amount, ByteString tokenId, TokenState token)
+        protected static void Mint(UInt160 owner, BigInteger amount, ByteString tokenId, TokenState token, object data=null)
         {
-            ExecutionEngine.Assert(amount > 0, "mint amount <= 0");
-            StorageMap tokenMap = new(Storage.CurrentContext, Prefix_Token);
-            tokenMap[tokenId] = StdLib.Serialize(token);
-            UpdateBalance(owner, tokenId, amount);
-            UpdateTotalSupply(amount);
-            PostTransfer(null, owner, tokenId, null);
-        }
-
-        protected static void Mint(UInt160 owner, BigInteger amount, ByteString tokenId, TokenState token, object data)
-        {
-            ExecutionEngine.Assert(amount > 0, "mint amount <= 0");
+            if (amount <= 0) throw new Exception("mint amount <= 0");
             StorageMap tokenMap = new(Storage.CurrentContext, Prefix_Token);
             tokenMap[tokenId] = StdLib.Serialize(token);
             UpdateBalance(owner, tokenId, amount);
@@ -129,7 +119,7 @@ namespace Neo.SmartContract.Framework
 
         protected static void Burn(UInt160 owner, BigInteger amount, ByteString tokenId)
         {
-            ExecutionEngine.Assert(amount > 0, "burn amount <= 0");
+            if (amount <= 0) throw new Exception("burn amount <= 0");
             UpdateBalance(owner, tokenId, -amount);
             UpdateTotalSupply(-amount);
             //if (OwnerOf(tokenId) has no element){
@@ -140,14 +130,22 @@ namespace Neo.SmartContract.Framework
             PostTransfer(owner, null, tokenId, null);
         }
 
-        protected static void UpdateBalance(UInt160 owner, ByteString tokenId, BigInteger increment)
+        protected static bool UpdateBalance(UInt160 owner, ByteString tokenId, BigInteger increment)
         {
+            StorageMap allTokenBalanceOfAccountMap = new(Storage.CurrentContext, Prefix_Balance);
+            BigInteger allTokenBalance = (BigInteger)allTokenBalanceOfAccountMap[owner];
+            allTokenBalance += increment;
+            if (allTokenBalance < 0) return false;
             StorageMap accountMap = new(Storage.CurrentContext, Prefix_AccountToken);
             StorageMap tokenOwnerMap = new(Storage.CurrentContext, Prefix_TokenOwner);
             ByteString key = owner + tokenId;
             ByteString tokenOwnerKey = (ByteString)(BigInteger)tokenId.Length + tokenId + owner;
             BigInteger currentBalance = (BigInteger)accountMap[key] + increment;
-            ExecutionEngine.Assert(currentBalance >= 0, "balance < 0");
+            if (currentBalance < 0) return false;
+            if (allTokenBalance.IsZero)
+                allTokenBalanceOfAccountMap.Delete(owner);
+            else
+                allTokenBalanceOfAccountMap.Put(owner, allTokenBalance);
             if (currentBalance > 0)
             {
                 accountMap.Put(key, currentBalance);
@@ -158,6 +156,7 @@ namespace Neo.SmartContract.Framework
                 accountMap.Delete(key);
                 tokenOwnerMap.Delete(tokenOwnerKey);
             }
+            return true;
         }
 
         private protected static void UpdateTotalSupply(BigInteger increment)
