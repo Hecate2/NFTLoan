@@ -11,14 +11,14 @@
 
 - Clone https://github.com/neo-project/neo-devpack-dotnet/commit/e1dae8f1f2ee066134d9e83539539c5c3fab19ec .
 
-- In `neo-devpack-dotnet/src/Neo.Compiler.CSharp/CompilationContext.cs`, comment out these codes at line 478:
+- In `neo-devpack-dotnet/src/Neo.Compiler.CSharp/CompilationContext.cs`, find these codes at line 478:
 
   ```csharp
   if (methodsExported.Any(u => u.Name == method.Name && u.Parameters.Length == method.Parameters.Length))
       throw new CompilationException(symbol, DiagnosticId.MethodNameConflict, $"Duplicate method key: {method.Name},{method.Parameters.Length}.");
   ```
 
-  You can even replace the two lines with the following codes:
+  Replace the two lines with the following codes:
 
   ```csharp
                   //if (methodsExported.Any(u => u.Name == method.Name && u.Parameters.Length == method.Parameters.Length))
@@ -29,8 +29,6 @@
   ```
 
 - run `neo-devpack-dotnet` from source code, with command line arguments ` PATH_TO_NFTLoan/NFTLoan --debug`.
-
-- If you commented out the codes (`if (methodsExported.Any(u => u.Name...`) in the compiler but did not inject new codes (`Abimethod? foundMethod ...`), then delete the first `transfer` method in `NFTLoan/NFTLoan/bin/sc/NFTFlashLoan.manifest.json`. 
 
 - It's better to check the assembly codes with command `dumpnef NFTFlashLoan.nef > NFTFlashLoan.nef.txt` if you run into weird exceptions.
 

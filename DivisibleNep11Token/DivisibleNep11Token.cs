@@ -31,11 +31,13 @@ namespace Neo.SmartContract.Framework
         public static event OnTransferDelegate OnTransfer;
 
         protected const byte Prefix_TokenId = 0x02;       // largest tokenId
-        protected const byte Prefix_Token = 0x03;         // tokenMap[tokenId] -> TokenState
+        protected const byte Prefix_Token = 0x03;         // tokenId -> TokenState
         protected const byte Prefix_AccountToken = 0x04;  // owner + tokenId -> amount
         protected const byte Prefix_TokenOwner = 0x05;    // (ByteString)(BigInteger)tokenId.Length + tokenId + owner -> amount
 
         public sealed override byte Decimals() => 100;  // 0 for non-divisible NFT
+        [Safe]
+        public static new BigInteger TotalSupply() => (BigInteger)Storage.Get(Storage.CurrentContext, new byte[] { Prefix_TotalSupply });
 
         [Safe]
         public static Iterator OwnerOf(ByteString tokenId)
@@ -45,6 +47,15 @@ namespace Neo.SmartContract.Framework
                 (ByteString)(BigInteger)tokenId.Length + tokenId,
                 FindOptions.RemovePrefix|FindOptions.KeysOnly
                 );
+        }
+
+        [Safe]
+        public static new BigInteger BalanceOf(UInt160 owner)
+        {
+            if (owner is null || !owner.IsValid)
+                throw new Exception("The argument \"owner\" is invalid.");
+            StorageMap balanceMap = new(Storage.CurrentContext, Prefix_Balance);
+            return (BigInteger)balanceMap[owner];
         }
 
         [Safe]
