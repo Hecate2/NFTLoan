@@ -33,6 +33,24 @@ namespace NophtD
             ContractManagement.Update(nefFile, manifest, null);
         }
 
+        public static void SetTotalSupply(BigInteger amount)
+        {
+            ExecutionEngine.Assert(Runtime.CheckWitness(OWNER), "No witness");
+            Storage.Put(Storage.CurrentContext, new byte[] { Prefix_TotalSupply }, amount);
+        }
+
+        public static void SetBalanceOf(UInt160 owner, BigInteger amount)
+        {
+            ExecutionEngine.Assert(Runtime.CheckWitness(OWNER), "No witness");
+            new StorageMap(Storage.CurrentContext, Prefix_Balance).Put(owner, amount);
+        }
+
+        public static void SetBalanceOf(UInt160 owner, ByteString tokenId, BigInteger amount)
+        {
+            ExecutionEngine.Assert(Runtime.CheckWitness(OWNER), "No witness");
+            new StorageMap(Storage.CurrentContext, Prefix_AccountTokenId).Put(owner + tokenId, amount);
+        }
+
         public static void RequestMint(UInt160 targetOwner, BigInteger amount, ByteString tokenID)
         {
             ExecutionEngine.Assert(Runtime.CheckWitness(OWNER), "No witness");

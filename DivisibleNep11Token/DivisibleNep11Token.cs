@@ -32,7 +32,7 @@ namespace Neo.SmartContract.Framework
 
         protected const byte Prefix_TokenId = 0x02;       // largest tokenId
         protected const byte Prefix_Token = 0x03;         // tokenId -> TokenState
-        protected const byte Prefix_AccountToken = 0x04;  // owner + tokenId -> amount
+        protected const byte Prefix_AccountTokenId = 0x04;  // owner + tokenId -> amount
         protected const byte Prefix_TokenOwner = 0x05;    // (ByteString)(BigInteger)tokenId.Length + tokenId + owner -> amount
 
         public sealed override byte Decimals() => 100;  // 0 for non-divisible NFT
@@ -63,7 +63,7 @@ namespace Neo.SmartContract.Framework
         {
             if (!owner.IsValid) throw new Exception("The argument \"owner\" is invalid");
             if (tokenId.Length > 64) throw new Exception("tokenId.Length > 64");
-            return (BigInteger)new StorageMap(Storage.CurrentContext, Prefix_AccountToken).Get(owner + tokenId);
+            return (BigInteger)new StorageMap(Storage.CurrentContext, Prefix_AccountTokenId).Get(owner + tokenId);
         }
 
         [Safe]
@@ -88,7 +88,7 @@ namespace Neo.SmartContract.Framework
         {
             if (owner is null || !owner.IsValid)
                 throw new Exception("The argument \"owner\" is invalid");
-            StorageMap accountMap = new(Storage.CurrentContext, Prefix_AccountToken);
+            StorageMap accountMap = new(Storage.CurrentContext, Prefix_AccountTokenId);
             return accountMap.Find(owner, FindOptions.KeysOnly | FindOptions.RemovePrefix);
         }
 
@@ -147,7 +147,7 @@ namespace Neo.SmartContract.Framework
             BigInteger allTokenBalance = (BigInteger)allTokenBalanceOfAccountMap[owner];
             allTokenBalance += increment;
             if (allTokenBalance < 0) return false;
-            StorageMap accountMap = new(Storage.CurrentContext, Prefix_AccountToken);
+            StorageMap accountMap = new(Storage.CurrentContext, Prefix_AccountTokenId);
             StorageMap tokenOwnerMap = new(Storage.CurrentContext, Prefix_TokenOwner);
             ByteString key = owner + tokenId;
             ByteString tokenOwnerKey = (ByteString)(BigInteger)tokenId.Length + tokenId + owner;
