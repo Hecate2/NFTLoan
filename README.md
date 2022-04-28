@@ -6,6 +6,8 @@
 4. [Done] Tenant pay compulsory collaterals, used to reward those who revoke expired rentals. 
 5. [Done] Renter can close a following rental
 6. [Done] Fire events
+7. [Potential] Give me your NFT to borrow fungible tokens!
+8. [Potential] Fungible collateral flash loan?
 
 #### Compilation Instructions
 
