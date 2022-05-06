@@ -17,6 +17,7 @@ namespace NFTLoan
     [ManifestExtra("Author", "Hecate2")]
     [ManifestExtra("Email", "developer@neo.org")]
     [ManifestExtra("Description", "NFTFlashLoan")]
+    [SupportedStandards("NEP-11")]
     [ContractPermission("*", "*")]
     public class NFTLoan : DivisibleNep11Token<DivisibleNep11TokenState>
     {
