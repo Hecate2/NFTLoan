@@ -506,8 +506,12 @@ namespace NFTLoan
             else
             {
                 // renter assigned; borrow only from given renter; tenant probably can have better prices
+                // WARNING: you can call FlashBorrowDivisible recursively,
+                // borrowing at best prices,
+                // with the amount exceeding the best-price renter's NFT supply.
+                // A fix is to write amountAndPrice on token rented.
                 BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize(tokenForRental[token + (ByteString)(BigInteger)tokenId.Length + tokenId + renter]);
-                ExecutionEngine.Assert(amountAndPrice[0] > neededAmount, "No enough NFTs to rent");
+                ExecutionEngine.Assert(amountAndPrice[0] >= neededAmount, "No enough NFTs to rent");
                 rentalPrice = Max(amountAndPrice[0] * amountAndPrice[1], MIN_RENTAL_PRICE);
                 ExecutionEngine.Assert((bool)Contract.Call(GAS.Hash, "transfer", CallFlags.All, tenant, renter, rentalPrice, TRANSACTION_DATA), "GAS transfer failed");
                 OnTokenRented(renter, token, tokenId, tenant, Runtime.Time, amountAndPrice[0], rentalPrice, 0, Runtime.Time);
@@ -516,7 +520,7 @@ namespace NFTLoan
 
             object result = Contract.Call(renterCalledContract, renterCalledMethod, CallFlags.All, arguments);
 
-            ExecutionEngine.Assert((bool)Contract.Call(token, "transfer", CallFlags.All, Runtime.ExecutingScriptHash, tenant, neededAmount, tokenId, TRANSACTION_DATA), "NFT payback failed");
+            ExecutionEngine.Assert((bool)Contract.Call(token, "transfer", CallFlags.All, tenant, Runtime.ExecutingScriptHash, neededAmount, tokenId, TRANSACTION_DATA), "NFT payback failed");
             return result;
         }
 
