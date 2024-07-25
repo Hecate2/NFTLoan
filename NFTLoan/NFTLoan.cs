@@ -81,6 +81,7 @@ namespace NFTLoan
             ExecutionEngine.Assert((string)data == TRANSACTION_DATA,
                 "Do not send tokens directly into this contract!");
         }
+        [Safe]
         public override string Symbol() => "NEPHRENT";
         public static BigInteger GetDecimals(UInt160 externalTokenContract) => (BigInteger)Contract.Call(externalTokenContract, "decimals", CallFlags.ReadStates);
         public static BigInteger BalanceOfRentalToken(ByteString internalTokenId) => BalanceOf(Runtime.ExecutingScriptHash, internalTokenId);
@@ -113,7 +114,7 @@ namespace NFTLoan
         public static Iterator ListInternalTokenId(UInt160 externalTokenContract, ByteString prefix) => new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL).Find(externalTokenContract + prefix);
         public static ByteString GetInternalTokenId(UInt160 externalTokenContract, ByteString externalTokenId) => new StorageMap(Storage.CurrentContext, PREFIX_TOKENID_EXTERNAL_TO_INTERNAL).Get(externalTokenContract + externalTokenId);
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        //[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static BigInteger Max(BigInteger v1, BigInteger v2) => v1 > v2 ? v1 : v2;
 
         public new static bool Transfer(UInt160 from, UInt160 to, BigInteger amount, ByteString tokenId, object data)
@@ -348,7 +349,7 @@ namespace NFTLoan
             ExecutionEngine.Assert(borrowTimeMilliseconds <= MAX_RENTAL_PERIOD, "Too long borrow time");
             StorageContext context = Storage.CurrentContext;
             StorageMap registeredRentalByTokenMap = new(context, PREFIX_REGISTERED_RENTAL_BY_TOKEN);
-            ByteString key = executingScriptHash + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId+ renter;
+            ByteString key = executingScriptHash + (ByteString)(BigInteger)internalTokenId.Length + internalTokenId + renter;
             BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize(registeredRentalByTokenMap.Get(key));
 
             BigInteger totalPrice = GetTotalPrice(amountAndPrice[1], borrowTimeMilliseconds);

@@ -20,6 +20,7 @@ namespace NophtD
         [InitialValue("Nb2CHYY5wTh2ac58mTue5S3wpG6bQv5hSY", ContractParameterType.Hash160)]
         public static readonly UInt160 OWNER = default;
 
+        [Safe]
         public override string Symbol() => "NophtD";
 
         public static void _deploy(object data, bool update)
