@@ -36,8 +36,6 @@ namespace Neo.SmartContract.Framework
         protected const byte Prefix_TokenOwner = 0x05;    // (ByteString)(BigInteger)tokenId.Length + tokenId + owner -> amount
 
         [Safe]
-        public sealed override byte Decimals() => 100;  // 0 for non-divisible NFT
-        [Safe]
         public static new BigInteger TotalSupply() => (BigInteger)Storage.Get(Storage.CurrentContext, new byte[] { Prefix_TotalSupply });
 
         [Safe]

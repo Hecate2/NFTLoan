@@ -81,8 +81,18 @@ namespace NFTLoan
             ExecutionEngine.Assert((string)data == TRANSACTION_DATA,
                 "Do not send tokens directly into this contract!");
         }
-        [Safe]
-        public override string Symbol() => "NEPHRENT";
+        
+        public override string Symbol
+        {
+            [Safe]
+            get => "NEPHRENT";
+        }
+        public override byte Decimals
+        {
+            [Safe]
+            get => 100;  // 0 for non-divisible NFT
+        }
+
         public static BigInteger GetDecimals(UInt160 externalTokenContract) => (BigInteger)Contract.Call(externalTokenContract, "decimals", CallFlags.ReadStates);
         public static BigInteger BalanceOfRentalToken(ByteString internalTokenId) => BalanceOf(Runtime.ExecutingScriptHash, internalTokenId);
 
@@ -285,7 +295,7 @@ namespace NFTLoan
             BigInteger[] amountAndPrice = (BigInteger[])StdLib.Deserialize(registeredRentalByTokenMap.Get(key));
             amountAndPrice[0] -= amount;
             amount = amountAndPrice[0];
-            ExecutionEngine.Assert(amount >= 0, "No enough token to unregister: " + tokenContract + renter + amount + tokenId);
+            ExecutionEngine.Assert(amount >= 0, "No enough token to unregister: " + tokenContract.ToAddress() + renter.ToAddress() + amount + tokenId);
             if (amount > 0)
             {
                 ByteString serialized = StdLib.Serialize(amountAndPrice);
